@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.shoerp.common.ApiResponse;
 import com.shoerp.dto.LoginRequest;
 import com.shoerp.dto.LoginResponse;
-import com.shoerp.entity.User;
 import com.shoerp.service.AuthService;
 
 @RestController
@@ -29,8 +28,8 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<User> me(Authentication authentication) {
+    public ApiResponse<LoginResponse> me(Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
-        return ApiResponse.success(authService.getById(userId));
+        return ApiResponse.success(authService.profile(userId));
     }
 }

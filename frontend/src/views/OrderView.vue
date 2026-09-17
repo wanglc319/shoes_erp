@@ -28,9 +28,10 @@
           <el-tag size="small" effect="plain" :type="prodTag(row.productionStatus)">{{ label(row.productionStatus) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="280">
+      <el-table-column :label="t('actions')" width="340">
         <template #default="{ row }">
           <el-button link type="primary" @click="open(row)">{{ t('edit') }}</el-button>
+          <el-button link @click="print(row)">{{ t('printContract') }}</el-button>
           <el-button link type="success" @click="toShipment(row)">{{ t('convertToShipment') }}</el-button>
           <el-button link type="danger" @click="remove(row)">{{ t('delete') }}</el-button>
         </template>
@@ -109,6 +110,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { orderApi, customerApi, shoeApi } from '../api'
+import { printOrder } from '../print'
 import { enumLabel } from '../labels'
 import { ORDER_STATUSES, PRODUCTION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
@@ -181,6 +183,11 @@ const toShipment = async (row) => {
   await orderApi.toShipment(row.id)
   ElMessage.success(t('success'))
   load()
+}
+
+const print = async (row) => {
+  const detail = (await orderApi.get(row.id)).data
+  printOrder(detail)
 }
 
 const remove = async (row) => {

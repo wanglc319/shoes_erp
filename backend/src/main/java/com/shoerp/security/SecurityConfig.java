@@ -15,6 +15,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.shoerp.service.PermissionService;
+
 import java.util.List;
 
 @Configuration
@@ -24,8 +26,11 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    private final PermissionService permissionService;
+
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, PermissionService permissionService) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.permissionService = permissionService;
     }
 
     @Bean
@@ -44,10 +49,25 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
-                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/permissions/**").access(menu("permissions"))
+                        .requestMatchers("/api/users/**").access(menu("users"))
+                        .requestMatchers("/api/dashboard/**").access(menu("dashboard"))
+                        .requestMatchers("/api/shoes/**").access(menu("shoes"))
+                        .requestMatchers("/api/suppliers/**").access(menu("suppliers"))
+                        .requestMatchers("/api/customers/**").access(menu("customers"))
+                        .requestMatchers("/api/quotations/**").access(menu("quotations"))
+                        .requestMatchers("/api/orders/**").access(menu("orders"))
+                        .requestMatchers("/api/shipments/**").access(menu("shipments"))
+                        .requestMatchers("/api/purchases/**").access(menu("purchases"))
+                        .requestMatchers("/api/finance/**").access(menu("finance"))
+                        .requestMatchers("/api/fx/**").access(menu("fx"))
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    private org.springframework.security.authorization.AuthorizationManager<org.springframework.security.web.access.intercept.RequestAuthorizationContext> menu(String key) {
+        return MenuAuthorizationManagers.menu(key, permissionService);
     }
 
     @Bean

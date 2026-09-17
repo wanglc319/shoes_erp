@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from './router'
+import { clearSession } from './permissions'
 
 const http = axios.create({
   baseURL: '/api',
@@ -27,8 +28,7 @@ http.interceptors.response.use(
   (error) => {
     const status = error.response?.status
     if (status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearSession()
       if (router.currentRoute.value.path !== '/login') {
         router.push('/login')
       }
@@ -82,6 +82,27 @@ export const orderApi = {
 export const shipmentApi = {
   ...resourceApi('/shipments'),
   updateStatus: (id, status) => http.post(`/shipments/${id}/status`, null, { params: { status } })
+}
+export const purchaseApi = {
+  ...resourceApi('/purchases'),
+  updateStatus: (id, status) => http.post(`/purchases/${id}/status`, null, { params: { status } })
+}
+export const paymentApi = {
+  ...resourceApi('/finance/payments')
+}
+export const receivableApi = {
+  page: (params) => http.get('/finance/receivables', { params }),
+  detail: (orderId) => http.get(`/finance/receivables/${orderId}`),
+  summary: () => http.get('/finance/receivables/summary')
+}
+export const fxApi = {
+  rates: (base) => http.get('/fx/rates', { params: { base } }),
+  convert: (params) => http.get('/fx/convert', { params })
+}
+export const permissionApi = {
+  all: () => http.get('/permissions'),
+  catalog: () => http.get('/permissions/catalog'),
+  save: (role, menuKeys) => http.put(`/permissions/${role}`, menuKeys)
 }
 export const dashboardApi = {
   stats: () => http.get('/dashboard/stats')

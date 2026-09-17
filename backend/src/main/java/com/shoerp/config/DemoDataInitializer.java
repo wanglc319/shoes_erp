@@ -19,6 +19,7 @@ import com.shoerp.repository.ShoeRepository;
 import com.shoerp.repository.SupplierRepository;
 import com.shoerp.repository.UserRepository;
 import com.shoerp.service.OrderService;
+import com.shoerp.service.PermissionService;
 import com.shoerp.service.QuotationService;
 import com.shoerp.service.ShipmentService;
 
@@ -48,11 +49,14 @@ public class DemoDataInitializer implements CommandLineRunner {
 
     private final ShipmentService shipmentService;
 
+    private final PermissionService permissionService;
+
     @Override
     public void run(String... args) {
         if (!appProperties.isInitDemoData()) {
             return;
         }
+        permissionService.seedDefaults();
         if (userRepository.count() > 0) {
             return;
         }

@@ -40,4 +40,12 @@ public class DocumentNoGenerator {
     public String nextCustomerCode() {
         return next("CUS");
     }
+
+    public String nextPurchaseNo() {
+        return next("PO");
+    }
+
+    public String nextPaymentNo() {
+        return next("RC");
+    }
 }

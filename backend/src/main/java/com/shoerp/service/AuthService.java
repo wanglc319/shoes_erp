@@ -20,11 +20,14 @@ public class AuthService {
 
     private final JwtTokenProvider tokenProvider;
 
+    private final PermissionService permissionService;
+
     public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                       JwtTokenProvider tokenProvider) {
+                       JwtTokenProvider tokenProvider, PermissionService permissionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
+        this.permissionService = permissionService;
     }
 
     @Transactional(readOnly = true)
@@ -41,7 +44,15 @@ public class AuthService {
             throw new BusinessException(401, "Invalid username or password");
         }
         String token = tokenProvider.generateToken(user.getId(), user.getUsername(), user.getRole());
-        return new LoginResponse(token, user.getId(), user.getUsername(), user.getRealName(), user.getRole());
+        return new LoginResponse(token, user.getId(), user.getUsername(), user.getRealName(), user.getRole(),
+                permissionService.menusOf(user.getRole()));
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse profile(Long userId) {
+        User user = getById(userId);
+        return new LoginResponse(null, user.getId(), user.getUsername(), user.getRealName(), user.getRole(),
+                permissionService.menusOf(user.getRole()));
     }
 
     @Transactional(readOnly = true)

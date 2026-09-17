@@ -21,9 +21,10 @@
           <el-tag size="small" :type="statusTag(row.status)">{{ label(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="240">
+      <el-table-column :label="t('actions')" width="300">
         <template #default="{ row }">
           <el-button link type="primary" @click="open(row)">{{ t('edit') }}</el-button>
+          <el-button link @click="print(row)">{{ t('printPi') }}</el-button>
           <el-button link type="success" @click="toOrder(row)">{{ t('convertToOrder') }}</el-button>
           <el-button link type="danger" @click="remove(row)">{{ t('delete') }}</el-button>
         </template>
@@ -99,6 +100,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { quotationApi, customerApi, shoeApi } from '../api'
+import { printQuotation } from '../print'
 import { enumLabel } from '../labels'
 import { QUOTATION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
@@ -172,6 +174,11 @@ const toOrder = async (row) => {
   await quotationApi.toOrder(row.id)
   ElMessage.success(t('success'))
   load()
+}
+
+const print = async (row) => {
+  const detail = (await quotationApi.get(row.id)).data
+  printQuotation(detail)
 }
 
 const remove = async (row) => {

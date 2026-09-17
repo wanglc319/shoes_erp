@@ -38,6 +38,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { authApi } from '../api'
+import { setSession } from '../permissions'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -53,7 +54,7 @@ const onLogin = async () => {
   try {
     const res = await authApi.login(form)
     localStorage.setItem('token', res.data.token)
-    localStorage.setItem('user', JSON.stringify(res.data))
+    setSession(res.data)
     ElMessage.success(t('success'))
     router.push('/dashboard')
   } finally {

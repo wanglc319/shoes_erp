@@ -57,6 +57,42 @@ export const SHIPMENT_STATUSES = ['PREPARING', 'DEPARTED', 'ARRIVED', 'CLEARED',
 
 export const ROLES = ['ADMIN', 'SALES', 'OPS', 'FINANCE']
 
+export const MENUS = [
+  { key: 'dashboard', titleKey: 'dashboard' },
+  { key: 'shoes', titleKey: 'shoes' },
+  { key: 'suppliers', titleKey: 'suppliers' },
+  { key: 'customers', titleKey: 'customers' },
+  { key: 'quotations', titleKey: 'quotations' },
+  { key: 'orders', titleKey: 'orders' },
+  { key: 'shipments', titleKey: 'shipments' },
+  { key: 'purchases', titleKey: 'purchases' },
+  { key: 'finance', titleKey: 'finance' },
+  { key: 'fx', titleKey: 'fx' },
+  { key: 'users', titleKey: 'users' },
+  { key: 'permissions', titleKey: 'permissions' }
+]
+
+export const PURCHASE_STATUSES = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'DELIVERED', 'CANCELLED']
+
+export const PAYMENT_METHODS = ['T/T', 'L/C', 'D/P', 'CAD', 'PayPal', 'Western Union', 'Cash']
+
+export const RECEIVABLE_STATUSES = ['UNPAID', 'PARTIAL', 'PAID', 'OVERDUE']
+
+export const WORLD_CLOCKS = [
+  { city: 'Beijing', zone: 'Asia/Shanghai' },
+  { city: 'Rotterdam', zone: 'Europe/Amsterdam' },
+  { city: 'Hamburg', zone: 'Europe/Berlin' },
+  { city: 'London', zone: 'Europe/London' },
+  { city: 'Moscow', zone: 'Europe/Moscow' },
+  { city: 'New York', zone: 'America/New_York' },
+  { city: 'Los Angeles', zone: 'America/Los_Angeles' },
+  { city: 'Dubai', zone: 'Asia/Dubai' },
+  { city: 'Singapore', zone: 'Asia/Singapore' },
+  { city: 'Tokyo', zone: 'Asia/Tokyo' },
+  { city: 'Sydney', zone: 'Australia/Sydney' },
+  { city: 'Sao Paulo', zone: 'America/Sao_Paulo' }
+]
+
 export const PORT_OF_LOADING = [
   'Ningbo', 'Shanghai', 'Shenzhen', 'Qingdao', 'Xiamen', 'Guangzhou', 'Tianjin',
   'Haiphong', 'Ho Chi Minh', 'Bangkok'

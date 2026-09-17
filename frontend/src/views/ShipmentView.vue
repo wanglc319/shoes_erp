@@ -23,9 +23,11 @@
           <el-tag size="small" :type="statusTag(row.status)">{{ label(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="160">
+      <el-table-column :label="t('actions')" width="300">
         <template #default="{ row }">
           <el-button link type="primary" @click="open(row)">{{ t('edit') }}</el-button>
+          <el-button link @click="printList(row)">{{ t('printPackingList') }}</el-button>
+          <el-button link @click="printInv(row)">{{ t('printInvoice') }}</el-button>
           <el-button link type="danger" @click="remove(row)">{{ t('delete') }}</el-button>
         </template>
       </el-table-column>
@@ -88,6 +90,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { shipmentApi, orderApi } from '../api'
+import { printPackingList, printInvoice } from '../print'
 import { enumLabel } from '../labels'
 import { SHIPMENT_STATUSES, PORT_OF_LOADING, PORT_OF_DESTINATION, today } from '../enums'
 
@@ -154,6 +157,16 @@ const remove = async (row) => {
   await shipmentApi.remove(row.id)
   ElMessage.success(t('success'))
   load()
+}
+
+const printList = async (row) => {
+  const detail = (await shipmentApi.get(row.id)).data
+  printPackingList(detail)
+}
+
+const printInv = async (row) => {
+  const detail = (await shipmentApi.get(row.id)).data
+  printInvoice(detail)
 }
 
 onMounted(load)

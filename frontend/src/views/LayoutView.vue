@@ -5,14 +5,9 @@
         <div class="brand-mark">S</div>
         <div>{{ t('brandShort') }}</div>
       </div>
-      <router-link class="menu-item" to="/dashboard">{{ t('dashboard') }}</router-link>
-      <router-link class="menu-item" to="/shoes">{{ t('shoes') }}</router-link>
-      <router-link class="menu-item" to="/suppliers">{{ t('suppliers') }}</router-link>
-      <router-link class="menu-item" to="/customers">{{ t('customers') }}</router-link>
-      <router-link class="menu-item" to="/quotations">{{ t('quotations') }}</router-link>
-      <router-link class="menu-item" to="/orders">{{ t('orders') }}</router-link>
-      <router-link class="menu-item" to="/shipments">{{ t('shipments') }}</router-link>
-      <router-link v-if="user.role === 'ADMIN'" class="menu-item" to="/users">{{ t('users') }}</router-link>
+      <router-link v-for="item in menus" :key="item.key" class="menu-item" :to="item.path">
+        {{ t(item.titleKey) }}
+      </router-link>
     </aside>
     <div class="content">
       <header class="topbar">
@@ -37,24 +32,29 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
+import { MENUS } from '../enums'
+import { session, can, clearSession } from '../permissions'
 
 const { t, locale } = useI18n()
 const router = useRouter()
-const user = computed(() => {
-  try {
-    return JSON.parse(localStorage.getItem('user') || '{}')
-  } catch {
-    return {}
-  }
-})
+const user = computed(() => session.user)
+
+const paths = {
+  dashboard: '/dashboard', shoes: '/shoes', suppliers: '/suppliers', customers: '/customers',
+  quotations: '/quotations', orders: '/orders', shipments: '/shipments', purchases: '/purchases',
+  finance: '/finance', fx: '/fx', users: '/users', permissions: '/permissions'
+}
+
+const menus = computed(() =>
+  MENUS.filter((item) => can(item.key)).map((item) => ({ ...item, path: paths[item.key] }))
+)
 
 const changeLocale = (value) => {
   localStorage.setItem('locale', value)
 }
 
 const logout = () => {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
+  clearSession()
   router.push('/login')
 }
 </script>
