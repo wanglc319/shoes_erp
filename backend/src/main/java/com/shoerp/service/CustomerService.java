@@ -4,16 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
 import com.shoerp.entity.Customer;
 import com.shoerp.repository.CustomerRepository;
+import com.shoerp.repository.QuotationRepository;
+import com.shoerp.repository.SalesOrderRepository;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -22,10 +25,17 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
 
+    private final SalesOrderRepository orderRepository;
+
+    private final QuotationRepository quotationRepository;
+
     private final DocumentNoGenerator noGenerator;
 
-    public CustomerService(CustomerRepository customerRepository, DocumentNoGenerator noGenerator) {
+    public CustomerService(CustomerRepository customerRepository, SalesOrderRepository orderRepository,
+                           QuotationRepository quotationRepository, DocumentNoGenerator noGenerator) {
         this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
+        this.quotationRepository = quotationRepository;
         this.noGenerator = noGenerator;
     }
 
@@ -49,8 +59,7 @@ public class CustomerService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Customer> result = customerRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Customer> result = customerRepository.findAll(spec, PageQuery.of(page, size));
         return PageResult.of(result);
     }
 
@@ -80,6 +89,14 @@ public class CustomerService {
             customer = new Customer();
         } else {
             customer = getById(payload.getId());
+            if (payload.getCode() != null
+                    && !payload.getCode().equals(customer.getCode())
+                    && customerRepository.existsByCode(payload.getCode())) {
+                throw new BusinessException("Customer code already exists");
+            }
+        }
+        if (payload.getName() == null || payload.getName().isBlank()) {
+            throw new BusinessException("Customer name is required");
         }
         customer.setCode(payload.getCode());
         customer.setName(payload.getName());
@@ -90,7 +107,7 @@ public class CustomerService {
         customer.setAddress(payload.getAddress());
         customer.setCountry(payload.getCountry());
         customer.setLevel(payload.getLevel() == null ? "B" : payload.getLevel());
-        customer.setCreditLimit(payload.getCreditLimit());
+        customer.setCreditLimit(Numbers.nonNegativeOrNull(payload.getCreditLimit(), "Credit limit"));
         customer.setPaymentTerms(payload.getPaymentTerms());
         customer.setTaxNo(payload.getTaxNo());
         customer.setEnabled(payload.getEnabled() == null || payload.getEnabled());
@@ -102,6 +119,12 @@ public class CustomerService {
     public void delete(Long id) {
         if (!customerRepository.existsById(id)) {
             throw new BusinessException(404, "Customer not found");
+        }
+        if (orderRepository.existsByCustomerId(id)) {
+            throw new BusinessException("Customer is referenced by sales orders and cannot be deleted");
+        }
+        if (quotationRepository.existsByCustomerId(id)) {
+            throw new BusinessException("Customer is referenced by quotations and cannot be deleted");
         }
         customerRepository.deleteById(id);
     }

@@ -82,6 +82,9 @@ public class FxService {
         String source = normalize(from);
         String target = normalize(to);
         BigDecimal value = amount == null ? BigDecimal.ONE : amount;
+        if (value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(400, "Amount must not be negative");
+        }
         BigDecimal rate = rate(source, target);
         BigDecimal converted = value.multiply(rate).setScale(4, RoundingMode.HALF_UP);
         Map<String, Object> result = new LinkedHashMap<>();

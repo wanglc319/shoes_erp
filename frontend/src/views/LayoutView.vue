@@ -1,23 +1,28 @@
 <template>
   <div class="layout">
-    <aside class="sidebar">
+    <div v-if="menuOpen" class="sidebar-backdrop" @click="menuOpen = false" />
+    <aside class="sidebar" :class="{ open: menuOpen }">
       <div class="brand">
         <div class="brand-mark">S</div>
         <div>{{ t('brandShort') }}</div>
+        <button class="menu-close" aria-label="close" @click="menuOpen = false"><span class="close-icon"></span></button>
       </div>
-      <router-link v-for="item in menus" :key="item.key" class="menu-item" :to="item.path">
+      <router-link v-for="item in menus" :key="item.key" class="menu-item" :to="item.path" @click="menuOpen = false">
         {{ t(item.titleKey) }}
       </router-link>
     </aside>
     <div class="content">
       <header class="topbar">
-        <strong>{{ t('brand') }}</strong>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div class="topbar-left">
+          <button class="menu-toggle" aria-label="menu" @click="menuOpen = true"><span class="burger-icon"></span></button>
+          <strong class="topbar-brand">{{ t('brand') }}</strong>
+        </div>
+        <div class="topbar-right">
           <el-select v-model="locale" size="small" style="width:110px" @change="changeLocale">
             <el-option label="中文" value="zh" />
             <el-option label="English" value="en" />
           </el-select>
-          <span>{{ user.realName || user.username }}</span>
+          <span class="topbar-user">{{ user.realName || user.username }}</span>
           <el-button size="small" @click="logout">{{ t('logout') }}</el-button>
         </div>
       </header>
@@ -29,7 +34,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { MENUS } from '../enums'
@@ -38,6 +43,7 @@ import { session, can, clearSession } from '../permissions'
 const { t, locale } = useI18n()
 const router = useRouter()
 const user = computed(() => session.user)
+const menuOpen = ref(false)
 
 const paths = {
   dashboard: '/dashboard', shoes: '/shoes', suppliers: '/suppliers', customers: '/customers',

@@ -4,15 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.entity.User;
 import com.shoerp.repository.UserRepository;
 
@@ -46,25 +46,26 @@ public class UserService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<User> result = userRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
-        result.getContent().forEach(u -> u.setPassword(null));
+        Page<User> result = userRepository.findAll(spec, PageQuery.of(page, size));
         return PageResult.of(result);
     }
 
     @Transactional(readOnly = true)
     public User getById(Long id) {
-        User user = userRepository.findById(id)
+        return userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "User not found"));
-        user.setPassword(null);
-        return user;
     }
 
     @Transactional
     public User save(User payload) {
+        String username = payload.getUsername() == null ? null : payload.getUsername().trim();
+        if (username == null || username.isBlank()) {
+            throw new BusinessException("Username is required");
+        }
+        String role = StatusCatalog.requireRole(payload.getRole() == null ? "SALES" : payload.getRole());
         User user;
         if (payload.getId() == null) {
-            if (userRepository.existsByUsername(payload.getUsername())) {
+            if (userRepository.existsByUsername(username)) {
                 throw new BusinessException("Username already exists");
             }
             user = new User();
@@ -74,19 +75,28 @@ public class UserService {
         } else {
             user = userRepository.findById(payload.getId())
                     .orElseThrow(() -> new BusinessException(404, "User not found"));
+            boolean defaultAdmin = "admin".equalsIgnoreCase(user.getUsername());
+            if (defaultAdmin && !"admin".equalsIgnoreCase(username)) {
+                throw new BusinessException("Cannot rename the default admin");
+            }
+            if (defaultAdmin && payload.getEnabled() != null && !payload.getEnabled()) {
+                throw new BusinessException("Cannot disable the default admin");
+            }
+            if (!username.equals(user.getUsername()) && userRepository.existsByUsername(username)) {
+                throw new BusinessException("Username already exists");
+            }
             if (payload.getPassword() != null && !payload.getPassword().isBlank()) {
                 user.setPassword(passwordEncoder.encode(payload.getPassword()));
             }
         }
-        user.setUsername(payload.getUsername());
+        user.setUsername(username);
         user.setRealName(payload.getRealName());
         user.setEmail(payload.getEmail());
         user.setPhone(payload.getPhone());
-        user.setRole(payload.getRole() == null ? "SALES" : payload.getRole());
+        user.setRole(role);
         user.setEnabled(payload.getEnabled() == null || payload.getEnabled());
         user.setRemark(payload.getRemark());
         User saved = userRepository.save(user);
-        saved.setPassword(null);
         return saved;
     }
 

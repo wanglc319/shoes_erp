@@ -163,6 +163,10 @@ const fillShoe = (row, shoeId) => {
 }
 
 const save = async () => {
+  if (!form.customerId) {
+    ElMessage.warning(t('customerRequired'))
+    return
+  }
   if (form.id) await quotationApi.update(form.id, form)
   else await quotationApi.create(form)
   ElMessage.success(t('success'))

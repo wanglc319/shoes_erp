@@ -4,14 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.entity.Shoe;
 import com.shoerp.entity.ShoeImage;
 import com.shoerp.repository.ShoeRepository;
@@ -50,17 +52,18 @@ public class ShoeService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Shoe> result = shoeRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Shoe> result = shoeRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(shoe -> shoe.getImages().size());
         return PageResult.of(result);
     }
 
     @Transactional(readOnly = true)
     public List<Shoe> listEnabled() {
-        return shoeRepository.findAll(Sort.by(Sort.Direction.ASC, "styleNo")).stream()
+        List<Shoe> shoes = shoeRepository.findAll(Sort.by(Sort.Direction.ASC, "styleNo")).stream()
                 .filter(s -> Boolean.TRUE.equals(s.getEnabled()))
                 .toList();
+        shoes.forEach(shoe -> shoe.getImages().size());
+        return shoes;
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +87,14 @@ public class ShoeService {
             shoe = new Shoe();
         } else {
             shoe = getById(payload.getId());
+            if (payload.getStyleNo() != null
+                    && !payload.getStyleNo().equals(shoe.getStyleNo())
+                    && shoeRepository.existsByStyleNo(payload.getStyleNo())) {
+                throw new BusinessException("Style No already exists");
+            }
+        }
+        if (payload.getName() == null || payload.getName().isBlank()) {
+            throw new BusinessException("Shoe name is required");
         }
         shoe.setStyleNo(payload.getStyleNo());
         shoe.setName(payload.getName());
@@ -94,12 +105,12 @@ public class ShoeService {
         shoe.setSoleMaterial(payload.getSoleMaterial());
         shoe.setColor(payload.getColor());
         shoe.setSizeRange(payload.getSizeRange());
-        shoe.setCostPrice(payload.getCostPrice());
-        shoe.setSellingPrice(payload.getSellingPrice());
-        shoe.setMoq(payload.getMoq());
+        shoe.setCostPrice(Numbers.nonNegativeOrNull(payload.getCostPrice(), "Cost price"));
+        shoe.setSellingPrice(Numbers.nonNegativeOrNull(payload.getSellingPrice(), "Selling price"));
+        shoe.setMoq(Numbers.nonNegativeOrNull(payload.getMoq(), "MOQ"));
         shoe.setSupplierId(payload.getSupplierId());
         shoe.setDescription(payload.getDescription());
-        shoe.setStatus(payload.getStatus() == null ? "ACTIVE" : payload.getStatus());
+        shoe.setStatus(payload.getStatus() == null ? "ACTIVE" : StatusCatalog.require(payload.getStatus(), StatusCatalog.SHOE, "Status"));
         shoe.setEnabled(payload.getEnabled() == null || payload.getEnabled());
         applyImages(shoe, payload);
         return shoeRepository.save(shoe);
@@ -144,6 +155,9 @@ public class ShoeService {
     public void delete(Long id) {
         if (!shoeRepository.existsById(id)) {
             throw new BusinessException(404, "Shoe not found");
+        }
+        if (shoeRepository.countItemReferences(id) > 0) {
+            throw new BusinessException("Shoe is referenced by documents and cannot be deleted");
         }
         shoeRepository.deleteById(id);
     }

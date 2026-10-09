@@ -6,14 +6,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Dates;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.dto.PurchaseRequest;
 import com.shoerp.entity.PurchaseOrder;
 import com.shoerp.entity.PurchaseOrderItem;
@@ -57,8 +59,7 @@ public class PurchaseOrderService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<PurchaseOrder> result = purchaseRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<PurchaseOrder> result = purchaseRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(p -> p.getItems().size());
         return PageResult.of(result);
     }
@@ -84,10 +85,17 @@ public class PurchaseOrderService {
             purchaseNo = nextAvailableNo();
         } else if (request.getId() == null && purchaseRepository.existsByPurchaseNo(purchaseNo)) {
             throw new BusinessException("Purchase number already exists: " + purchaseNo);
+        } else if (request.getId() != null
+                && !purchaseNo.equals(purchase.getPurchaseNo())
+                && purchaseRepository.existsByPurchaseNo(purchaseNo)) {
+            throw new BusinessException("Purchase number already exists: " + purchaseNo);
         }
 
-        Supplier supplier = supplierRepository.findById(request.getSupplierId())
-                .orElseThrow(() -> new BusinessException(404, "Supplier not found"));
+        Supplier supplier = resolveSupplier(request.getSupplierId());
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("Purchase order must contain at least one item");
+        }
 
         purchase.setPurchaseNo(purchaseNo);
         purchase.setSupplierId(supplier.getId());
@@ -96,7 +104,7 @@ public class PurchaseOrderService {
         purchase.setExpectedDate(parseDate(request.getExpectedDate(), null));
         purchase.setCurrency(request.getCurrency() == null ? "CNY" : request.getCurrency());
         purchase.setPaymentTerms(request.getPaymentTerms());
-        purchase.setStatus(request.getStatus() == null ? "DRAFT" : request.getStatus());
+        purchase.setStatus(request.getStatus() == null ? "DRAFT" : StatusCatalog.require(request.getStatus(), StatusCatalog.PURCHASE, "Status"));
         purchase.setBuyer(request.getBuyer());
         purchase.setRemark(request.getRemark());
 
@@ -111,9 +119,9 @@ public class PurchaseOrderService {
                 item.setProductName(payload.getProductName());
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
-                item.setQuantity(payload.getQuantity() == null ? 0 : payload.getQuantity());
+                item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));
                 item.setUnit(payload.getUnit() == null ? "PRS" : payload.getUnit());
-                item.setUnitPrice(scale(payload.getUnitPrice()));
+                item.setUnitPrice(Numbers.nonNegative(payload.getUnitPrice(), "Unit price"));
                 item.setRemark(payload.getRemark());
                 BigDecimal amount = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
                 item.setAmount(scale(amount));
@@ -128,7 +136,7 @@ public class PurchaseOrderService {
     @Transactional
     public PurchaseOrder updateStatus(Long id, String status) {
         PurchaseOrder purchase = getById(id);
-        purchase.setStatus(status);
+        purchase.setStatus(StatusCatalog.require(status, StatusCatalog.PURCHASE, "Status"));
         return purchaseRepository.save(purchase);
     }
 
@@ -140,6 +148,14 @@ public class PurchaseOrderService {
         purchaseRepository.deleteById(id);
     }
 
+    private Supplier resolveSupplier(Long supplierId) {
+        if (supplierId == null) {
+            throw new BusinessException("Supplier is required");
+        }
+        return supplierRepository.findById(supplierId)
+                .orElseThrow(() -> new BusinessException(404, "Supplier not found"));
+    }
+
     private String nextAvailableNo() {
         String candidate = noGenerator.nextPurchaseNo();
         while (purchaseRepository.existsByPurchaseNo(candidate)) {
@@ -149,13 +165,10 @@ public class PurchaseOrderService {
     }
 
     private LocalDate parseDate(String value, LocalDate defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
-        }
-        return LocalDate.parse(value.substring(0, 10));
+        return Dates.parse(value, defaultValue);
     }
 
     private BigDecimal scale(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value.setScale(2, java.math.RoundingMode.HALF_UP);
+        return Numbers.scale(value);
     }
 }

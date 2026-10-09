@@ -3,17 +3,21 @@ package com.shoerp.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Dates;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.dto.ShipmentRequest;
 import com.shoerp.entity.OrderItem;
 import com.shoerp.entity.SalesOrder;
@@ -57,8 +61,7 @@ public class ShipmentService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Shipment> result = shipmentRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Shipment> result = shipmentRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(s -> s.getItems().size());
         return PageResult.of(result);
     }
@@ -85,10 +88,20 @@ public class ShipmentService {
         if (request.getId() == null && shipmentRepository.existsByShipmentNo(shipmentNo)) {
             throw new BusinessException("Shipment number already exists: " + shipmentNo);
         }
+        if (request.getId() != null
+                && !shipmentNo.equals(shipment.getShipmentNo())
+                && shipmentRepository.existsByShipmentNo(shipmentNo)) {
+            throw new BusinessException("Shipment number already exists: " + shipmentNo);
+        }
 
-        SalesOrder order = orderRepository.findById(request.getOrderId())
-                .orElseThrow(() -> new BusinessException(404, "Order not found"));
+        SalesOrder order = resolveOrder(request.getOrderId());
         order.getItems().size();
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("Shipment must contain at least one item");
+        }
+
+        validateShipmentQuantities(order, request.getId(), request.getItems());
 
         shipment.setShipmentNo(shipmentNo);
         shipment.setOrderId(order.getId());
@@ -100,7 +113,7 @@ public class ShipmentService {
         shipment.setVessel(request.getVessel());
         shipment.setPortOfLoading(request.getPortOfLoading());
         shipment.setPortOfDestination(request.getPortOfDestination());
-        shipment.setStatus(request.getStatus() == null ? "PREPARING" : request.getStatus());
+        shipment.setStatus(request.getStatus() == null ? "PREPARING" : StatusCatalog.require(request.getStatus(), StatusCatalog.SHIPMENT, "Status"));
         shipment.setRemark(request.getRemark());
 
         shipment.getItems().clear();
@@ -115,12 +128,12 @@ public class ShipmentService {
                 item.setProductName(payload.getProductName());
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
-                item.setQuantity(payload.getQuantity() == null ? 0 : payload.getQuantity());
+                item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));
                 item.setUnit(payload.getUnit() == null ? "PRS" : payload.getUnit());
-                item.setCartons(payload.getCartons() == null ? 0 : payload.getCartons());
-                item.setGrossWeight(payload.getGrossWeight());
-                item.setNetWeight(payload.getNetWeight());
-                item.setUnitPrice(scale(payload.getUnitPrice()));
+                item.setCartons(Numbers.nonNegative(payload.getCartons(), "Cartons"));
+                item.setGrossWeight(Numbers.nonNegativeOrNull(payload.getGrossWeight(), "Gross weight"));
+                item.setNetWeight(Numbers.nonNegativeOrNull(payload.getNetWeight(), "Net weight"));
+                item.setUnitPrice(Numbers.nonNegative(payload.getUnitPrice(), "Unit price"));
                 item.setAmount(scale(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()))));
                 totalQty += item.getQuantity();
                 totalCartons += item.getCartons();
@@ -187,7 +200,7 @@ public class ShipmentService {
     @Transactional
     public Shipment updateStatus(Long id, String status) {
         Shipment shipment = getById(id);
-        shipment.setStatus(status);
+        shipment.setStatus(StatusCatalog.require(status, StatusCatalog.SHIPMENT, "Status"));
         return shipmentRepository.save(shipment);
     }
 
@@ -213,18 +226,65 @@ public class ShipmentService {
             order.setStatus("SHIPPED");
         } else if (anyShipped) {
             order.setStatus("PARTIAL_SHIPPED");
+        } else if ("SHIPPED".equals(order.getStatus()) || "PARTIAL_SHIPPED".equals(order.getStatus())) {
+            order.setStatus("CONFIRMED");
         }
         orderRepository.save(order);
     }
 
-    private LocalDate parseDate(String value, LocalDate defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
+    private void validateShipmentQuantities(SalesOrder order, Long currentShipmentId,
+                                            List<ShipmentRequest.ItemPayload> payloads) {
+        Map<String, Integer> ordered = new HashMap<>();
+        for (OrderItem item : order.getItems()) {
+            if (item.getStyleNo() != null) {
+                ordered.merge(item.getStyleNo(), item.getQuantity(), Integer::sum);
+            }
         }
-        return LocalDate.parse(value.substring(0, 10));
+        Map<String, Integer> alreadyShipped = new HashMap<>();
+        for (Shipment existing : shipmentRepository.findByOrderId(order.getId())) {
+            if (currentShipmentId != null && currentShipmentId.equals(existing.getId())) {
+                continue;
+            }
+            existing.getItems().size();
+            for (ShipmentItem si : existing.getItems()) {
+                if (si.getStyleNo() != null) {
+                    alreadyShipped.merge(si.getStyleNo(), si.getQuantity(), Integer::sum);
+                }
+            }
+        }
+        Map<String, Integer> requested = new HashMap<>();
+        for (ShipmentRequest.ItemPayload payload : payloads) {
+            if (payload.getStyleNo() != null) {
+                requested.merge(payload.getStyleNo(),
+                        payload.getQuantity() == null ? 0 : payload.getQuantity(), Integer::sum);
+            }
+        }
+        for (Map.Entry<String, Integer> entry : requested.entrySet()) {
+            Integer capacity = ordered.get(entry.getKey());
+            if (capacity == null) {
+                continue;
+            }
+            int shipped = alreadyShipped.getOrDefault(entry.getKey(), 0);
+            if (shipped + entry.getValue() > capacity) {
+                throw new BusinessException("Shipment quantity for style " + entry.getKey()
+                        + " exceeds the ordered quantity (" + capacity + ")");
+            }
+        }
+    }
+
+    private SalesOrder resolveOrder(Long orderId) {
+        if (orderId == null) {
+            throw new BusinessException("Order is required");
+        }
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(404, "Order not found"));
+    }
+
+    private LocalDate parseDate(String value, LocalDate defaultValue) {
+        return Dates.parse(value, defaultValue);
     }
 
     private BigDecimal scale(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value.setScale(2, java.math.RoundingMode.HALF_UP);
+        return Numbers.scale(value);
     }
 }

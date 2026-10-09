@@ -34,6 +34,17 @@ export const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP'
 
 export const CURRENCIES = ['USD', 'EUR', 'GBP', 'CNY', 'AUD', 'CAD', 'JPY', 'HKD']
 
+export const CURRENCY_NAMES = {
+  USD: { zh: '美元', en: 'US Dollar' },
+  EUR: { zh: '欧元', en: 'Euro' },
+  GBP: { zh: '英镑', en: 'British Pound' },
+  CNY: { zh: '人民币', en: 'Chinese Yuan' },
+  AUD: { zh: '澳元', en: 'Australian Dollar' },
+  CAD: { zh: '加元', en: 'Canadian Dollar' },
+  JPY: { zh: '日元', en: 'Japanese Yen' },
+  HKD: { zh: '港币', en: 'Hong Kong Dollar' }
+}
+
 export const PAYMENT_TERMS = [
   'T/T 30% deposit, 70% before shipment',
   'T/T 30% deposit, 70% against BL copy',
@@ -79,18 +90,18 @@ export const PAYMENT_METHODS = ['T/T', 'L/C', 'D/P', 'CAD', 'PayPal', 'Western U
 export const RECEIVABLE_STATUSES = ['UNPAID', 'PARTIAL', 'PAID', 'OVERDUE']
 
 export const WORLD_CLOCKS = [
-  { city: 'Beijing', zone: 'Asia/Shanghai' },
-  { city: 'Rotterdam', zone: 'Europe/Amsterdam' },
-  { city: 'Hamburg', zone: 'Europe/Berlin' },
-  { city: 'London', zone: 'Europe/London' },
-  { city: 'Moscow', zone: 'Europe/Moscow' },
-  { city: 'New York', zone: 'America/New_York' },
-  { city: 'Los Angeles', zone: 'America/Los_Angeles' },
-  { city: 'Dubai', zone: 'Asia/Dubai' },
-  { city: 'Singapore', zone: 'Asia/Singapore' },
-  { city: 'Tokyo', zone: 'Asia/Tokyo' },
-  { city: 'Sydney', zone: 'Australia/Sydney' },
-  { city: 'Sao Paulo', zone: 'America/Sao_Paulo' }
+  { city: 'Beijing', cityZh: '北京', zone: 'Asia/Shanghai' },
+  { city: 'Rotterdam', cityZh: '鹿特丹', zone: 'Europe/Amsterdam' },
+  { city: 'Hamburg', cityZh: '汉堡', zone: 'Europe/Berlin' },
+  { city: 'London', cityZh: '伦敦', zone: 'Europe/London' },
+  { city: 'Moscow', cityZh: '莫斯科', zone: 'Europe/Moscow' },
+  { city: 'New York', cityZh: '纽约', zone: 'America/New_York' },
+  { city: 'Los Angeles', cityZh: '洛杉矶', zone: 'America/Los_Angeles' },
+  { city: 'Dubai', cityZh: '迪拜', zone: 'Asia/Dubai' },
+  { city: 'Singapore', cityZh: '新加坡', zone: 'Asia/Singapore' },
+  { city: 'Tokyo', cityZh: '东京', zone: 'Asia/Tokyo' },
+  { city: 'Sydney', cityZh: '悉尼', zone: 'Australia/Sydney' },
+  { city: 'Sao Paulo', cityZh: '圣保罗', zone: 'America/Sao_Paulo' }
 ]
 
 export const PORT_OF_LOADING = [

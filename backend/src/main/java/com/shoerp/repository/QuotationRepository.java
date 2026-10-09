@@ -13,5 +13,7 @@ public interface QuotationRepository extends JpaRepository<Quotation, Long>, Jpa
 
     boolean existsByQuoteNo(String quoteNo);
 
+    boolean existsByCustomerId(Long customerId);
+
     long countByStatus(String status);
 }

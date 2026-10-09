@@ -6,7 +6,7 @@
       <el-col :span="6"><div class="stat-card"><div class="stat-label">{{ t('totalAmount') }}</div><div class="stat-value">{{ summary.totalAmount ?? '-' }}</div></div></el-col>
       <el-col :span="6"><div class="stat-card"><div class="stat-label">{{ t('receivedAmount') }}</div><div class="stat-value" style="color:#12b76a">{{ summary.receivedAmount ?? '-' }}</div></div></el-col>
       <el-col :span="6"><div class="stat-card"><div class="stat-label">{{ t('outstanding') }}</div><div class="stat-value" style="color:#f79009">{{ summary.outstandingAmount ?? '-' }}</div></div></el-col>
-      <el-col :span="6"><div class="stat-card"><div class="stat-label">Overdue</div><div class="stat-value" style="color:#f04438">{{ summary.overdueCount ?? 0 }}</div></div></el-col>
+      <el-col :span="6"><div class="stat-card"><div class="stat-label">{{ t('overdue') }}</div><div class="stat-value" style="color:#f04438">{{ summary.overdueCount ?? 0 }}</div></div></el-col>
     </el-row>
 
     <div class="toolbar">
@@ -50,7 +50,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="t('amountIn')"><el-input-number v-model="payForm.amount" :min="0" :precision="2" :controls="false" style="width:100%" /></el-form-item>
-        <el-form-item label="Reference"><el-input v-model="payForm.reference" /></el-form-item>
+        <el-form-item :label="t('reference')"><el-input v-model="payForm.reference" /></el-form-item>
         <el-form-item :label="t('remark')"><el-input v-model="payForm.remark" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>
@@ -65,7 +65,7 @@
         <el-table-column prop="paymentDate" :label="t('paymentDate')" width="120" />
         <el-table-column prop="method" :label="t('method')" width="110" />
         <el-table-column prop="amount" :label="t('amountIn')" width="120" />
-        <el-table-column prop="reference" label="Reference" />
+        <el-table-column prop="reference" :label="t('reference')" />
       </el-table>
       <div v-if="!history.length" style="text-align:center;color:#98a2b3;padding:14px">{{ t('noPayments') }}</div>
     </el-dialog>
@@ -114,6 +114,10 @@ const register = (row) => {
 }
 
 const savePayment = async () => {
+  if (!payForm.orderId) {
+    ElMessage.warning(t('orderRequired'))
+    return
+  }
   await paymentApi.create(payForm)
   ElMessage.success(t('success'))
   payVisible.value = false

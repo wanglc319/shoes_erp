@@ -10,13 +10,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
 import com.shoerp.dto.ReceivableRow;
 import com.shoerp.entity.Payment;
@@ -58,8 +57,7 @@ public class FinanceService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Payment> result = paymentRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Payment> result = paymentRepository.findAll(spec, PageQuery.of(page, size));
         return PageResult.of(result);
     }
 
@@ -79,18 +77,37 @@ public class FinanceService {
             payment = paymentRepository.findById(payload.getId())
                     .orElseThrow(() -> new BusinessException(404, "Payment not found"));
         }
-        SalesOrder order = orderRepository.findById(payload.getOrderId())
-                .orElseThrow(() -> new BusinessException(404, "Order not found"));
+        SalesOrder order = resolveOrder(payload.getOrderId());
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw new BusinessException("Cannot record payments for a cancelled order");
+        }
         payment.setOrderId(order.getId());
         payment.setOrderNo(order.getOrderNo());
         payment.setCustomerName(order.getCustomerName());
         payment.setCurrency(order.getCurrency());
         payment.setPaymentDate(payload.getPaymentDate() == null ? LocalDate.now() : payload.getPaymentDate());
         payment.setMethod(payload.getMethod() == null ? "T/T" : payload.getMethod());
-        payment.setAmount(scale(payload.getAmount()));
+        BigDecimal amount = nonNegative(payload.getAmount(), "Amount");
+        validatePaymentTotal(order, payment.getId(), amount);
+        payment.setAmount(amount);
         payment.setReference(payload.getReference());
         payment.setRemark(payload.getRemark());
         return paymentRepository.save(payment);
+    }
+
+    private void validatePaymentTotal(SalesOrder order, Long currentPaymentId, BigDecimal amount) {
+        BigDecimal total = order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount();
+        BigDecimal received = BigDecimal.ZERO;
+        for (Payment existing : paymentRepository.findByOrderIdOrderByIdDesc(order.getId())) {
+            if (currentPaymentId != null && currentPaymentId.equals(existing.getId())) {
+                continue;
+            }
+            received = received.add(existing.getAmount() == null ? BigDecimal.ZERO : existing.getAmount());
+        }
+        if (received.add(amount).compareTo(total) > 0) {
+            throw new BusinessException("Payment amount exceeds the order total (" + scale(total)
+                    + "); remaining receivable is " + scale(total.subtract(received)));
+        }
     }
 
     @Transactional
@@ -125,10 +142,10 @@ public class FinanceService {
                         cb.like(root.get("orderNo"), like),
                         cb.like(root.get("customerName"), like)));
             }
+            predicates.add(cb.notEqual(root.get("status"), "CANCELLED"));
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<SalesOrder> result = orderRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<SalesOrder> result = orderRepository.findAll(spec, PageQuery.of(page, size));
         List<Long> ids = result.getContent().stream().map(SalesOrder::getId).toList();
         Map<Long, List<Payment>> grouped = ids.isEmpty()
                 ? new HashMap<>()
@@ -143,7 +160,9 @@ public class FinanceService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> summary() {
-        List<SalesOrder> orders = orderRepository.findAll();
+        List<SalesOrder> orders = orderRepository.findAll().stream()
+                .filter(order -> !"CANCELLED".equals(order.getStatus()))
+                .toList();
         List<Long> ids = orders.stream().map(SalesOrder::getId).toList();
         Map<Long, List<Payment>> grouped = ids.isEmpty()
                 ? new HashMap<>()
@@ -214,6 +233,14 @@ public class FinanceService {
         return row;
     }
 
+    private SalesOrder resolveOrder(Long orderId) {
+        if (orderId == null) {
+            throw new BusinessException("Order is required");
+        }
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(404, "Order not found"));
+    }
+
     private String nextAvailableNo() {
         String candidate = noGenerator.nextPaymentNo();
         while (paymentRepository.existsByPaymentNo(candidate)) {
@@ -224,5 +251,13 @@ public class FinanceService {
 
     private BigDecimal scale(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal nonNegative(BigDecimal value, String field) {
+        BigDecimal scaled = scale(value);
+        if (scaled.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(field + " must not be negative");
+        }
+        return scaled;
     }
 }

@@ -6,6 +6,7 @@ import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import './styles.css'
+import { installMobileTable } from './mobileTable'
 
 const app = createApp(App)
 app.use(createPinia())
@@ -13,3 +14,4 @@ app.use(router)
 app.use(i18n)
 app.use(ElementPlus)
 app.mount('#app')
+installMobileTable()

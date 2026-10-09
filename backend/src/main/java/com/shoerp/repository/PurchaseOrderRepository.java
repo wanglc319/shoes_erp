@@ -9,5 +9,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     boolean existsByPurchaseNo(String purchaseNo);
 
+    boolean existsBySupplierId(Long supplierId);
+
     long countByStatus(String status);
 }

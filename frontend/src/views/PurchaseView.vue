@@ -161,6 +161,10 @@ const fillShoe = (row, shoeId) => {
 }
 
 const save = async () => {
+  if (!form.supplierId) {
+    ElMessage.warning(t('supplierRequired'))
+    return
+  }
   if (form.id) await purchaseApi.update(form.id, form)
   else await purchaseApi.create(form)
   ElMessage.success(t('success'))

@@ -145,6 +145,10 @@ const fillOrder = async (orderId) => {
 }
 
 const save = async () => {
+  if (!form.orderId) {
+    ElMessage.warning(t('orderRequired'))
+    return
+  }
   if (form.id) await shipmentApi.update(form.id, form)
   else await shipmentApi.create(form)
   ElMessage.success(t('success'))

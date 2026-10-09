@@ -6,20 +6,23 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Dates;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.dto.QuotationRequest;
 import com.shoerp.entity.Customer;
 import com.shoerp.entity.Quotation;
 import com.shoerp.entity.QuotationItem;
 import com.shoerp.repository.CustomerRepository;
 import com.shoerp.repository.QuotationRepository;
+import com.shoerp.repository.SalesOrderRepository;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -30,12 +33,15 @@ public class QuotationService {
 
     private final CustomerRepository customerRepository;
 
+    private final SalesOrderRepository orderRepository;
+
     private final DocumentNoGenerator noGenerator;
 
     public QuotationService(QuotationRepository quotationRepository, CustomerRepository customerRepository,
-                            DocumentNoGenerator noGenerator) {
+                            SalesOrderRepository orderRepository, DocumentNoGenerator noGenerator) {
         this.quotationRepository = quotationRepository;
         this.customerRepository = customerRepository;
+        this.orderRepository = orderRepository;
         this.noGenerator = noGenerator;
     }
 
@@ -57,8 +63,7 @@ public class QuotationService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Quotation> result = quotationRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Quotation> result = quotationRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(q -> q.getItems().size());
         return PageResult.of(result);
     }
@@ -85,9 +90,17 @@ public class QuotationService {
         if (request.getId() == null && quotationRepository.existsByQuoteNo(quoteNo)) {
             throw new BusinessException("Quotation number already exists: " + quoteNo);
         }
+        if (request.getId() != null
+                && !quoteNo.equals(quotation.getQuoteNo())
+                && quotationRepository.existsByQuoteNo(quoteNo)) {
+            throw new BusinessException("Quotation number already exists: " + quoteNo);
+        }
 
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new BusinessException(404, "Customer not found"));
+        Customer customer = resolveCustomer(request.getCustomerId());
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("Quotation must contain at least one item");
+        }
 
         quotation.setQuoteNo(quoteNo);
         quotation.setCustomerId(customer.getId());
@@ -97,7 +110,7 @@ public class QuotationService {
         quotation.setTradeTerms(request.getTradeTerms());
         quotation.setCurrency(request.getCurrency() == null ? "USD" : request.getCurrency());
         quotation.setPaymentTerms(request.getPaymentTerms());
-        quotation.setStatus(request.getStatus() == null ? "DRAFT" : request.getStatus());
+        quotation.setStatus(request.getStatus() == null ? "DRAFT" : StatusCatalog.require(request.getStatus(), StatusCatalog.QUOTATION, "Status"));
         quotation.setSalesOwner(request.getSalesOwner());
         quotation.setRemark(request.getRemark());
 
@@ -113,10 +126,10 @@ public class QuotationService {
                 item.setMaterial(payload.getMaterial());
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
-                item.setQuantity(payload.getQuantity() == null ? 0 : payload.getQuantity());
+                item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));
                 item.setUnit(payload.getUnit() == null ? "PRS" : payload.getUnit());
-                item.setUnitPrice(scale(payload.getUnitPrice()));
-                item.setCostPrice(payload.getCostPrice());
+                item.setUnitPrice(Numbers.nonNegative(payload.getUnitPrice(), "Unit price"));
+                item.setCostPrice(Numbers.nonNegativeOrNull(payload.getCostPrice(), "Cost price"));
                 item.setRemark(payload.getRemark());
                 BigDecimal amount = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
                 item.setAmount(scale(amount));
@@ -133,24 +146,32 @@ public class QuotationService {
         if (!quotationRepository.existsById(id)) {
             throw new BusinessException(404, "Quotation not found");
         }
+        if (orderRepository.existsByQuotationId(id)) {
+            throw new BusinessException("Quotation is referenced by sales orders and cannot be deleted");
+        }
         quotationRepository.deleteById(id);
     }
 
     @Transactional
     public Quotation updateStatus(Long id, String status) {
         Quotation quotation = getById(id);
-        quotation.setStatus(status);
+        quotation.setStatus(StatusCatalog.require(status, StatusCatalog.QUOTATION, "Status"));
         return quotationRepository.save(quotation);
     }
 
-    private LocalDate parseDate(String value, LocalDate defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
+    private Customer resolveCustomer(Long customerId) {
+        if (customerId == null) {
+            throw new BusinessException("Customer is required");
         }
-        return LocalDate.parse(value.substring(0, 10));
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new BusinessException(404, "Customer not found"));
+    }
+
+    private LocalDate parseDate(String value, LocalDate defaultValue) {
+        return Dates.parse(value, defaultValue);
     }
 
     private BigDecimal scale(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value.setScale(2, java.math.RoundingMode.HALF_UP);
+        return Numbers.scale(value);
     }
 }

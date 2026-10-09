@@ -8,8 +8,8 @@
           <div class="fx-head">
             <span>{{ t('forexBoard') }}</span>
             <div style="display:flex;gap:8px;align-items:center">
-              <el-select v-model="base" size="small" style="width:110px" @change="loadRates">
-                <el-option v-for="c in CURRENCIES" :key="c" :label="c" :value="c" />
+              <el-select v-model="base" size="small" style="width:150px" @change="loadRates">
+                <el-option v-for="c in CURRENCIES" :key="c" :label="currencyLabel(c)" :value="c" />
               </el-select>
               <el-button size="small" @click="loadRates">{{ t('refresh') }}</el-button>
             </div>
@@ -17,7 +17,7 @@
           <el-alert v-if="stale" :title="t('loadFailed')" type="warning" :closable="false" show-icon style="margin-bottom:10px" />
           <div class="fx-grid">
             <div v-for="c in CURRENCIES" :key="c" class="fx-cell" :class="{ active: c === base }">
-              <div class="fx-code">{{ c }}</div>
+              <div class="fx-code">{{ currencyLabel(c) }}</div>
               <div class="fx-rate">{{ rateOf(c) }}</div>
             </div>
           </div>
@@ -33,12 +33,12 @@
             </el-form-item>
             <el-form-item :label="t('base')">
               <el-select v-model="convertForm.from" style="width:100%" @change="doConvert">
-                <el-option v-for="c in CURRENCIES" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in CURRENCIES" :key="c" :label="currencyLabel(c)" :value="c" />
               </el-select>
             </el-form-item>
             <el-form-item :label="t('target')">
               <el-select v-model="convertForm.to" style="width:100%" @change="doConvert">
-                <el-option v-for="c in CURRENCIES" :key="c" :label="c" :value="c" />
+                <el-option v-for="c in CURRENCIES" :key="c" :label="currencyLabel(c)" :value="c" />
               </el-select>
             </el-form-item>
           </el-form>
@@ -54,7 +54,7 @@
       <div class="fx-head">{{ t('worldClock') }}</div>
       <div class="clock-grid">
         <div v-for="c in WORLD_CLOCKS" :key="c.zone" class="clock-cell">
-          <div class="clock-city">{{ c.city }}</div>
+          <div class="clock-city">{{ cityLabel(c) }}</div>
           <div class="clock-time">{{ clockOf(c.zone) }}</div>
           <div class="clock-zone">{{ c.zone }}</div>
         </div>
@@ -67,17 +67,25 @@
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { fxApi } from '../api'
-import { CURRENCIES, WORLD_CLOCKS } from '../enums'
+import { CURRENCIES, CURRENCY_NAMES, WORLD_CLOCKS } from '../enums'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const base = ref('USD')
 const rates = ref({})
 const updatedAt = ref('')
 const stale = ref(false)
-const convertForm = reactive({ amount: 100, from: 'USD', to: 'EUR' })
+const convertForm = reactive({ amount: 100, from: 'USD', to: 'CNY' })
 const convertResult = reactive({ converted: null, rate: null })
 const now = ref(new Date())
 let timer = null
+
+const currencyLabel = (code) => {
+  const n = CURRENCY_NAMES[code]
+  const local = locale.value === 'en' ? (n?.en ?? code) : (n?.zh ?? code)
+  return local === code ? code : `${code} ${local}`
+}
+
+const cityLabel = (c) => (locale.value === 'en' ? c.city : (c.cityZh || c.city))
 
 const rateOf = (code) => {
   if (code === base.value) return '1.0000'
@@ -210,5 +218,21 @@ onUnmounted(() => {
 .clock-zone {
   font-size: 11px;
   color: #98a2b3;
+}
+
+@media (max-width: 768px) {
+  .el-col-14, .el-col-10 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  .el-col-10 {
+    margin-top: 14px;
+  }
+  .fx-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .clock-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>

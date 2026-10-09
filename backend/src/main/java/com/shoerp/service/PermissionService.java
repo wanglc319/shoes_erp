@@ -9,13 +9,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
 import com.shoerp.common.MenuCatalog;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.entity.RoleMenu;
 import com.shoerp.repository.RoleMenuRepository;
 
 @Service
 public class PermissionService {
 
-    public static final List<String> ROLES = List.of("ADMIN", "SALES", "OPS", "FINANCE");
+    public static final List<String> ROLES = StatusCatalog.ROLES;
+
+    private static final String NONE_MARKER = "__none__";
 
     private static final Map<String, List<String>> DEFAULT_MENUS = defaultMenus();
 
@@ -48,14 +51,15 @@ public class PermissionService {
         if (role == null || role.isBlank()) {
             return List.of();
         }
-        List<String> keys = roleMenuRepository.findByRole(role).stream()
-                .map(RoleMenu::getMenuKey)
-                .filter(MenuCatalog::exists)
-                .toList();
-        if (keys.isEmpty()) {
+        List<RoleMenu> rows = roleMenuRepository.findByRole(role);
+        if (rows.isEmpty()) {
             return DEFAULT_MENUS.getOrDefault(role, List.of());
         }
-        return keys;
+        return rows.stream()
+                .map(RoleMenu::getMenuKey)
+                .filter(MenuCatalog::exists)
+                .distinct()
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +82,11 @@ public class PermissionService {
                 .toList();
         roleMenuRepository.deleteByRole(role);
         roleMenuRepository.flush();
-        keys.forEach(key -> roleMenuRepository.save(new RoleMenu(role, key)));
+        if (keys.isEmpty()) {
+            roleMenuRepository.save(new RoleMenu(role, NONE_MARKER));
+        } else {
+            keys.forEach(key -> roleMenuRepository.save(new RoleMenu(role, key)));
+        }
         return keys;
     }
 }

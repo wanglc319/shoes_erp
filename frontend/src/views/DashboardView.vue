@@ -8,7 +8,7 @@
         <div class="hint">{{ item.hint }}</div>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:14px;margin-top:16px">
+    <div class="dash-grid dash-grid-a">
       <div class="page-card">
         <h3>{{ t('stats.monthly') }}</h3>
         <el-table :data="stats.monthlyTrend || []" size="small">
@@ -24,7 +24,7 @@
         </el-table>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">
+    <div class="dash-grid dash-grid-b">
       <div class="page-card">
         <h3>{{ t('stats.topProducts') }}</h3>
         <el-table :data="stats.topProducts || []" size="small">

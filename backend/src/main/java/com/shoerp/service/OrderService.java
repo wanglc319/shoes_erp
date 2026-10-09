@@ -3,17 +3,23 @@ package com.shoerp.service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Dates;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
+import com.shoerp.common.StatusCatalog;
 import com.shoerp.dto.OrderRequest;
 import com.shoerp.entity.Customer;
 import com.shoerp.entity.OrderItem;
@@ -22,6 +28,7 @@ import com.shoerp.entity.SalesOrder;
 import com.shoerp.repository.CustomerRepository;
 import com.shoerp.repository.QuotationRepository;
 import com.shoerp.repository.SalesOrderRepository;
+import com.shoerp.repository.ShipmentRepository;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -34,13 +41,17 @@ public class OrderService {
 
     private final QuotationRepository quotationRepository;
 
+    private final ShipmentRepository shipmentRepository;
+
     private final DocumentNoGenerator noGenerator;
 
     public OrderService(SalesOrderRepository orderRepository, CustomerRepository customerRepository,
-                        QuotationRepository quotationRepository, DocumentNoGenerator noGenerator) {
+                        QuotationRepository quotationRepository, ShipmentRepository shipmentRepository,
+                        DocumentNoGenerator noGenerator) {
         this.orderRepository = orderRepository;
         this.customerRepository = customerRepository;
         this.quotationRepository = quotationRepository;
+        this.shipmentRepository = shipmentRepository;
         this.noGenerator = noGenerator;
     }
 
@@ -65,8 +76,7 @@ public class OrderService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<SalesOrder> result = orderRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<SalesOrder> result = orderRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(o -> o.getItems().size());
         return PageResult.of(result);
     }
@@ -93,9 +103,17 @@ public class OrderService {
         if (request.getId() == null && orderRepository.existsByOrderNo(orderNo)) {
             throw new BusinessException("Order number already exists: " + orderNo);
         }
+        if (request.getId() != null
+                && !orderNo.equals(order.getOrderNo())
+                && orderRepository.existsByOrderNo(orderNo)) {
+            throw new BusinessException("Order number already exists: " + orderNo);
+        }
 
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new BusinessException(404, "Customer not found"));
+        Customer customer = resolveCustomer(request.getCustomerId());
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new BusinessException("Order must contain at least one item");
+        }
 
         order.setOrderNo(orderNo);
         order.setQuotationId(request.getQuotationId());
@@ -106,18 +124,38 @@ public class OrderService {
         order.setTradeTerms(request.getTradeTerms());
         order.setCurrency(request.getCurrency() == null ? "USD" : request.getCurrency());
         order.setPaymentTerms(request.getPaymentTerms());
-        order.setDepositAmount(scale(request.getDepositAmount()));
-        order.setStatus(request.getStatus() == null ? "PENDING" : request.getStatus());
-        order.setProductionStatus(request.getProductionStatus() == null ? "NOT_STARTED" : request.getProductionStatus());
+        order.setDepositAmount(Numbers.nonNegative(request.getDepositAmount(), "Deposit amount"));
+        order.setStatus(request.getStatus() == null ? "PENDING" : StatusCatalog.require(request.getStatus(), StatusCatalog.ORDER, "Status"));
+        order.setProductionStatus(request.getProductionStatus() == null ? "NOT_STARTED" : StatusCatalog.require(request.getProductionStatus(), StatusCatalog.PRODUCTION, "Production status"));
         order.setSalesOwner(request.getSalesOwner());
         order.setRemark(request.getRemark());
 
         List<OrderItem> existing = new ArrayList<>(order.getItems());
         order.getItems().clear();
 
+        Map<String, Integer> shippedByStyle = new HashMap<>();
+        for (OrderItem item : existing) {
+            if (item.getStyleNo() != null && item.getShippedQuantity() != null) {
+                shippedByStyle.merge(item.getStyleNo(), item.getShippedQuantity(), Integer::sum);
+            }
+        }
+        Set<Long> submittedShoeIds = new HashSet<>();
+        for (OrderRequest.ItemPayload payload : request.getItems()) {
+            if (payload.getShoeId() != null) {
+                submittedShoeIds.add(payload.getShoeId());
+            }
+        }
+        for (OrderItem removed : existing) {
+            if (removed.getShoeId() != null && !submittedShoeIds.contains(removed.getShoeId())) {
+                if (removed.getShippedQuantity() != null && removed.getShippedQuantity() > 0) {
+                    throw new BusinessException("Cannot remove style " + removed.getStyleNo()
+                            + " because it already has a shipped quantity of " + removed.getShippedQuantity());
+                }
+            }
+        }
+
         BigDecimal total = BigDecimal.ZERO;
         if (request.getItems() != null) {
-            int index = 0;
             for (OrderRequest.ItemPayload payload : request.getItems()) {
                 OrderItem item = new OrderItem();
                 item.setOrder(order);
@@ -126,18 +164,21 @@ public class OrderService {
                 item.setProductName(payload.getProductName());
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
-                item.setQuantity(payload.getQuantity() == null ? 0 : payload.getQuantity());
+                item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));
                 item.setUnit(payload.getUnit() == null ? "PRS" : payload.getUnit());
-                item.setUnitPrice(scale(payload.getUnitPrice()));
-                item.setCostPrice(payload.getCostPrice());
+                item.setUnitPrice(Numbers.nonNegative(payload.getUnitPrice(), "Unit price"));
+                item.setCostPrice(Numbers.nonNegativeOrNull(payload.getCostPrice(), "Cost price"));
                 item.setRemark(payload.getRemark());
-                item.setShippedQuantity(index < existing.size()
-                        ? existing.get(index).getShippedQuantity() : 0);
+                int shipped = shippedByStyle.getOrDefault(item.getStyleNo(), 0);
+                if (item.getQuantity() < shipped) {
+                    throw new BusinessException("Quantity cannot be less than the already shipped quantity ("
+                            + shipped + ") for style " + payload.getStyleNo());
+                }
+                item.setShippedQuantity(shipped);
                 BigDecimal amount = item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
                 item.setAmount(scale(amount));
                 total = total.add(item.getAmount());
                 order.getItems().add(item);
-                index++;
             }
         }
         order.setTotalAmount(scale(total));
@@ -149,6 +190,12 @@ public class OrderService {
         Quotation quotation = quotationRepository.findById(quotationId)
                 .orElseThrow(() -> new BusinessException(404, "Quotation not found"));
         quotation.getItems().size();
+        if ("LOST".equals(quotation.getStatus())) {
+            throw new BusinessException("Quotation has been marked as LOST and cannot be converted to an order");
+        }
+        if (orderRepository.existsByQuotationId(quotation.getId())) {
+            throw new BusinessException("Quotation has already been converted to a sales order");
+        }
 
         OrderRequest request = new OrderRequest();
         request.setQuotationId(quotation.getId());
@@ -185,31 +232,39 @@ public class OrderService {
         if (!orderRepository.existsById(id)) {
             throw new BusinessException(404, "Order not found");
         }
+        if (shipmentRepository.existsByOrderId(id)) {
+            throw new BusinessException("Order is referenced by shipments and cannot be deleted");
+        }
         orderRepository.deleteById(id);
     }
 
     @Transactional
     public SalesOrder updateStatus(Long id, String status) {
         SalesOrder order = getById(id);
-        order.setStatus(status);
+        order.setStatus(StatusCatalog.require(status, StatusCatalog.ORDER, "Status"));
         return orderRepository.save(order);
     }
 
     @Transactional
     public SalesOrder updateProductionStatus(Long id, String productionStatus) {
         SalesOrder order = getById(id);
-        order.setProductionStatus(productionStatus);
+        order.setProductionStatus(StatusCatalog.require(productionStatus, StatusCatalog.PRODUCTION, "Production status"));
         return orderRepository.save(order);
     }
 
-    private LocalDate parseDate(String value, LocalDate defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
+    private Customer resolveCustomer(Long customerId) {
+        if (customerId == null) {
+            throw new BusinessException("Customer is required");
         }
-        return LocalDate.parse(value.substring(0, 10));
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new BusinessException(404, "Customer not found"));
+    }
+
+    private LocalDate parseDate(String value, LocalDate defaultValue) {
+        return Dates.parse(value, defaultValue);
     }
 
     private BigDecimal scale(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value.setScale(2, java.math.RoundingMode.HALF_UP);
+        return Numbers.scale(value);
     }
 }

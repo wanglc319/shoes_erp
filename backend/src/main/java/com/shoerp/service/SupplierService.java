@@ -4,15 +4,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.shoerp.common.BusinessException;
+import com.shoerp.common.Numbers;
+import com.shoerp.common.PageQuery;
 import com.shoerp.common.PageResult;
 import com.shoerp.entity.Supplier;
+import com.shoerp.repository.PurchaseOrderRepository;
+import com.shoerp.repository.ShoeRepository;
 import com.shoerp.repository.SupplierRepository;
 
 import jakarta.persistence.criteria.Predicate;
@@ -22,10 +25,17 @@ public class SupplierService {
 
     private final SupplierRepository supplierRepository;
 
+    private final ShoeRepository shoeRepository;
+
+    private final PurchaseOrderRepository purchaseRepository;
+
     private final DocumentNoGenerator noGenerator;
 
-    public SupplierService(SupplierRepository supplierRepository, DocumentNoGenerator noGenerator) {
+    public SupplierService(SupplierRepository supplierRepository, ShoeRepository shoeRepository,
+                           PurchaseOrderRepository purchaseRepository, DocumentNoGenerator noGenerator) {
         this.supplierRepository = supplierRepository;
+        this.shoeRepository = shoeRepository;
+        this.purchaseRepository = purchaseRepository;
         this.noGenerator = noGenerator;
     }
 
@@ -50,8 +60,7 @@ public class SupplierService {
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-        Page<Supplier> result = supplierRepository.findAll(spec,
-                PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "id")));
+        Page<Supplier> result = supplierRepository.findAll(spec, PageQuery.of(page, size));
         return PageResult.of(result);
     }
 
@@ -81,6 +90,14 @@ public class SupplierService {
             supplier = new Supplier();
         } else {
             supplier = getById(payload.getId());
+            if (payload.getCode() != null
+                    && !payload.getCode().equals(supplier.getCode())
+                    && supplierRepository.existsByCode(payload.getCode())) {
+                throw new BusinessException("Supplier code already exists");
+            }
+        }
+        if (payload.getName() == null || payload.getName().isBlank()) {
+            throw new BusinessException("Supplier name is required");
         }
         supplier.setCode(payload.getCode());
         supplier.setName(payload.getName());
@@ -92,7 +109,7 @@ public class SupplierService {
         supplier.setCountry(payload.getCountry());
         supplier.setPaymentTerms(payload.getPaymentTerms());
         supplier.setType(payload.getType());
-        supplier.setRating(payload.getRating() == null ? 5 : payload.getRating());
+        supplier.setRating(payload.getRating() == null ? 5 : Numbers.nonNegative(payload.getRating(), "Rating"));
         supplier.setEnabled(payload.getEnabled() == null || payload.getEnabled());
         supplier.setRemark(payload.getRemark());
         return supplierRepository.save(supplier);
@@ -102,6 +119,12 @@ public class SupplierService {
     public void delete(Long id) {
         if (!supplierRepository.existsById(id)) {
             throw new BusinessException(404, "Supplier not found");
+        }
+        if (shoeRepository.existsBySupplierId(id)) {
+            throw new BusinessException("Supplier is referenced by shoes and cannot be deleted");
+        }
+        if (purchaseRepository.existsBySupplierId(id)) {
+            throw new BusinessException("Supplier is referenced by purchase orders and cannot be deleted");
         }
         supplierRepository.deleteById(id);
     }

@@ -15,4 +15,6 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>, JpaSp
     boolean existsByShipmentNo(String shipmentNo);
 
     List<Shipment> findByOrderId(Long orderId);
+
+    boolean existsByOrderId(Long orderId);
 }
