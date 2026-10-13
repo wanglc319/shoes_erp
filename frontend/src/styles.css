@@ -104,6 +104,13 @@ body {
   background: var(--accent); color: #1b1403;
   display: grid; place-items: center; font-weight: 800;
 }
+.brand-logo {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+}
 .menu-item {
   display: block;
   color: #dce4ef;

@@ -15,6 +15,7 @@
         <el-option v-for="s in RECEIVABLE_STATUSES" :key="s" :label="label(s)" :value="s" />
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="orderNo" :label="t('orderNo')" width="150" />
@@ -77,6 +78,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { receivableApi, paymentApi } from '../api'
+import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { RECEIVABLE_STATUSES, PAYMENT_METHODS, today } from '../enums'
 
@@ -92,6 +94,18 @@ const history = ref([])
 const payForm = reactive({})
 
 const statusTag = (status) => (status === 'PAID' ? 'success' : status === 'OVERDUE' ? 'danger' : status === 'PARTIAL' ? 'warning' : 'info')
+
+const exportRows = async () => {
+  const res = await receivableApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('receivables', [
+    t('orderNo'), t('customer'), t('orderDate'), t('currency'), t('totalAmount'),
+    t('receivedAmount'), t('outstanding'), t('status')
+  ], records.map((row) => [
+    row.orderNo, row.customerName, row.orderDate, row.currency, row.totalAmount,
+    row.receivedAmount, row.outstandingAmount, label(row.status)
+  ]))
+}
 
 const load = async () => {
   const res = await receivableApi.page(query)

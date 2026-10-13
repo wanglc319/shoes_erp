@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.shoerp.common.ApiResponse;
+import com.shoerp.dto.ChangePasswordRequest;
 import com.shoerp.dto.LoginRequest;
 import com.shoerp.dto.LoginResponse;
 import com.shoerp.service.AuthService;
@@ -31,5 +32,13 @@ public class AuthController {
     public ApiResponse<LoginResponse> me(Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
         return ApiResponse.success(authService.profile(userId));
+    }
+
+    @PostMapping("/change-password")
+    public ApiResponse<Void> changePassword(Authentication authentication,
+                                            @RequestBody ChangePasswordRequest request) {
+        Long userId = (Long) authentication.getPrincipal();
+        authService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
+        return ApiResponse.success(null);
     }
 }

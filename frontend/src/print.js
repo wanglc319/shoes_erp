@@ -53,7 +53,7 @@ const openDocument = (title, body) => {
 const header = (title) => `
   <div class="doc-head">
     <div>
-      <div class="company">ShoeERP Footwear Co., Ltd.</div>
+      <div class="company">建社贸易有限公司 | Jianshe Trading Co., Ltd.</div>
       <div class="company-sub">Footwear Export &amp; Trading &nbsp;|&nbsp; Ningbo, China</div>
     </div>
     <div class="doc-title">${esc(title)}</div>

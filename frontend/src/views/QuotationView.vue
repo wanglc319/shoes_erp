@@ -8,6 +8,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="quoteNo" :label="t('quoteNo')" width="150" />
@@ -101,6 +102,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { quotationApi, customerApi, shoeApi } from '../api'
 import { printQuotation } from '../print'
+import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { QUOTATION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
@@ -110,6 +112,18 @@ const rows = ref([])
 const total = ref(0)
 const visible = ref(false)
 const customers = ref([])
+
+const exportRows = async () => {
+  const res = await quotationApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('quotations', [
+    t('quoteNo'), t('customer'), t('quoteDate'), t('validUntil'),
+    t('tradeTerms'), t('currency'), t('totalAmount'), t('status')
+  ], records.map((row) => [
+    row.quoteNo, row.customerName, row.quoteDate, row.validUntil,
+    row.tradeTerms, row.currency, row.totalAmount, label(row.status)
+  ]))
+}
 const shoes = ref([])
 const query = reactive({ keyword: '', status: '', page: 1, size: 10 })
 const form = reactive({ items: [] })

@@ -8,6 +8,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="code" :label="t('code')" width="140" />
@@ -72,6 +73,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { supplierApi } from '../api'
+import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { SUPPLIER_TYPES, COUNTRIES, PAYMENT_TERMS } from '../enums'
 
@@ -82,6 +84,18 @@ const total = ref(0)
 const visible = ref(false)
 const query = reactive({ keyword: '', type: '', page: 1, size: 10 })
 const form = reactive({})
+
+const exportRows = async () => {
+  const res = await supplierApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('suppliers', [
+    t('code'), t('name'), t('nameEn'), t('contact'), t('phone'), t('email'),
+    t('country'), t('category'), t('rating')
+  ], records.map((row) => [
+    row.code, row.name, row.nameEn, row.contactPerson, row.phone, row.email,
+    row.country, label(row.type), row.rating
+  ]))
+}
 
 const load = async () => {
   const res = await supplierApi.page(query)

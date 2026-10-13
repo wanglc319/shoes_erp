@@ -4,7 +4,7 @@ import router from './router'
 import { clearSession } from './permissions'
 
 const http = axios.create({
-  baseURL: '/api',
+  baseURL: `${import.meta.env.BASE_URL}api`,
   timeout: 20000
 })
 
@@ -40,7 +40,8 @@ http.interceptors.response.use(
 
 export const authApi = {
   login: (data) => http.post('/auth/login', data),
-  me: () => http.get('/auth/me')
+  me: () => http.get('/auth/me'),
+  changePassword: (data) => http.post('/auth/change-password', data)
 }
 
 export const fileApi = {

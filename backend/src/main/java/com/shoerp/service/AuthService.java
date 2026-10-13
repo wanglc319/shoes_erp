@@ -60,4 +60,26 @@ public class AuthService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "User not found"));
     }
+
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        if (oldPassword == null || newPassword == null) {
+            throw new BusinessException(400, "Old password and new password are required");
+        }
+        if (newPassword.length() < 6) {
+            throw new BusinessException(400, "New password must be at least 6 characters");
+        }
+        if ("123456".equals(newPassword)) {
+            throw new BusinessException(400, "New password must not be the default password");
+        }
+        User user = getById(userId);
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new BusinessException(400, "Old password is incorrect");
+        }
+        if (passwordEncoder.matches(newPassword, user.getPassword())) {
+            throw new BusinessException(400, "New password must be different from the old one");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
 }

@@ -11,6 +11,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="orderNo" :label="t('orderNo')" width="150" />
@@ -18,6 +19,11 @@
       <el-table-column prop="orderDate" :label="t('orderDate')" width="120" />
       <el-table-column prop="deliveryDate" :label="t('deliveryDate')" width="120" />
       <el-table-column prop="totalAmount" :label="t('totalAmount')" width="120" />
+      <el-table-column :label="t('grossProfit')" width="150">
+        <template #default="{ row }">
+          <span :class="{ 'profit-neg': marginOf(row) < 0 }">{{ marginText(row) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column :label="t('status')" width="140">
         <template #default="{ row }">
           <el-tag size="small" :type="orderTag(row.status)">{{ label(row.status) }}</el-tag>
@@ -111,6 +117,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { orderApi, customerApi, shoeApi } from '../api'
 import { printOrder } from '../print'
+import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { ORDER_STATUSES, PRODUCTION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
@@ -123,6 +130,39 @@ const customers = ref([])
 const shoes = ref([])
 const query = reactive({ keyword: '', status: '', productionStatus: '', page: 1, size: 10 })
 const form = reactive({ items: [] })
+
+const marginOf = (row) => {
+  const items = row.items || []
+  if (!items.length) return null
+  return items.reduce((sum, item) => {
+    const amount = Number(item.amount || 0)
+    const cost = Number(item.costPrice || 0) * Number(item.quantity || 0)
+    return sum + amount - cost
+  }, 0)
+}
+
+const hasCostData = (row) => (row.items || []).some((item) => Number(item.costPrice || 0) > 0)
+
+const marginText = (row) => {
+  if (!hasCostData(row)) return '-'
+  const margin = marginOf(row)
+  const pct = Number(row.totalAmount) > 0 ? ((margin / Number(row.totalAmount)) * 100).toFixed(1) + '%' : '-'
+  return `${margin.toFixed(2)} (${pct})`
+}
+
+const exportRows = async () => {
+  const res = await orderApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('orders', [
+    t('orderNo'), t('customer'), t('orderDate'), t('deliveryDate'), t('totalAmount'),
+    t('costTotal'), t('grossProfit'), t('status'), t('productionStatus')
+  ], records.map((row) => [
+    row.orderNo, row.customerName, row.orderDate, row.deliveryDate, row.totalAmount,
+    hasCostData(row) ? Number((row.items || []).reduce((s, i) => s + Number(i.costPrice || 0) * Number(i.quantity || 0), 0)).toFixed(2) : '',
+    hasCostData(row) ? (marginOf(row) || 0).toFixed(2) : '',
+    label(row.status), label(row.productionStatus)
+  ]))
+}
 
 const orderTag = (status) => (['SHIPPED', 'CONFIRMED'].includes(status) ? 'success' : status === 'CANCELLED' ? 'danger' : status === 'PARTIAL_SHIPPED' ? 'warning' : 'info')
 const prodTag = (status) => (status === 'COMPLETED' ? 'success' : status === 'IN_PRODUCTION' ? 'warning' : 'info')
@@ -203,3 +243,10 @@ const remove = async (row) => {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.profit-neg {
+  color: #f56c6c;
+  font-weight: 600;
+}
+</style>

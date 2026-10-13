@@ -1,7 +1,7 @@
 <template>
   <div class="login-wrap">
     <div class="login-hero">
-      <div class="brand-mark" style="width:48px;height:48px;font-size:20px;margin-bottom:18px">S</div>
+      <img class="brand-logo" style="width:48px;height:48px;margin-bottom:18px" src="../assets/logo.jpg" alt="logo" />
       <h1>{{ t('heroTitle') }}</h1>
       <p>{{ t('heroDesc') }}</p>
     </div>

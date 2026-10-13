@@ -114,10 +114,17 @@ const loadRates = async () => {
 
 const doConvert = async () => {
   if (convertForm.amount === null || convertForm.amount === undefined) return
-  const res = await fxApi.convert({ from: convertForm.from, to: convertForm.to, amount: convertForm.amount })
-  convertResult.converted = res.data.converted
-  convertResult.rate = res.data.rate
+  try {
+    const res = await fxApi.convert({ from: convertForm.from, to: convertForm.to, amount: convertForm.amount })
+    convertResult.converted = res.data.converted
+    convertResult.rate = res.data.rate
+  } catch {
+    convertResult.converted = null
+    convertResult.rate = null
+  }
 }
+
+let rateTimer = null
 
 onMounted(() => {
   loadRates()
@@ -125,10 +132,12 @@ onMounted(() => {
   timer = setInterval(() => {
     now.value = new Date()
   }, 1000)
+  rateTimer = setInterval(loadRates, 5 * 60 * 1000)
 })
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (rateTimer) clearInterval(rateTimer)
 })
 </script>
 

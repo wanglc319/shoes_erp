@@ -1,7 +1,9 @@
 package com.shoerp.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -14,9 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.shoerp.dto.DashboardStats;
 import com.shoerp.entity.Customer;
 import com.shoerp.entity.OrderItem;
+import com.shoerp.entity.Payment;
+import com.shoerp.entity.Quotation;
 import com.shoerp.entity.SalesOrder;
 import com.shoerp.entity.Shipment;
 import com.shoerp.repository.CustomerRepository;
+import com.shoerp.repository.PaymentRepository;
 import com.shoerp.repository.QuotationRepository;
 import com.shoerp.repository.SalesOrderRepository;
 import com.shoerp.repository.ShipmentRepository;
@@ -25,6 +30,8 @@ import com.shoerp.repository.SupplierRepository;
 
 @Service
 public class DashboardService {
+
+    private static final List<String> ACTIVE_ORDER_STATUS = List.of("PENDING", "CONFIRMED", "PARTIAL_SHIPPED");
 
     private final ShoeRepository shoeRepository;
 
@@ -38,15 +45,19 @@ public class DashboardService {
 
     private final ShipmentRepository shipmentRepository;
 
+    private final PaymentRepository paymentRepository;
+
     public DashboardService(ShoeRepository shoeRepository, SupplierRepository supplierRepository,
                             CustomerRepository customerRepository, QuotationRepository quotationRepository,
-                            SalesOrderRepository orderRepository, ShipmentRepository shipmentRepository) {
+                            SalesOrderRepository orderRepository, ShipmentRepository shipmentRepository,
+                            PaymentRepository paymentRepository) {
         this.shoeRepository = shoeRepository;
         this.supplierRepository = supplierRepository;
         this.customerRepository = customerRepository;
         this.quotationRepository = quotationRepository;
         this.orderRepository = orderRepository;
         this.shipmentRepository = shipmentRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     @Transactional(readOnly = true)
@@ -123,10 +134,66 @@ public class DashboardService {
                 .limit(8)
                 .collect(Collectors.toList()));
         stats.setCountryDistribution(countryMap.entrySet().stream()
-                .sorted(Map.Entry.<String, BigDecimal>comparingByValue().reversed())
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
                 .map(e -> new DashboardStats.CountryAmount(e.getKey(), e.getValue()))
                 .collect(Collectors.toList()));
+        stats.setAlerts(buildAlerts(orders));
         return stats;
+    }
+
+    /** Business risk alerts: expiring quotations, overdue/due-soon orders, overdue receivables. */
+    private List<DashboardStats.Alert> buildAlerts(List<SalesOrder> orders) {
+        List<DashboardStats.Alert> alerts = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        LocalDate dueSoonLimit = today.plusDays(3);
+        LocalDate quoteSoonLimit = today.plusDays(7);
+
+        for (Quotation quotation : quotationRepository.findAll()) {
+            if (!"DRAFT".equals(quotation.getStatus()) && !"SENT".equals(quotation.getStatus())) {
+                continue;
+            }
+            if (quotation.getValidUntil() == null) {
+                continue;
+            }
+            LocalDate until = quotation.getValidUntil();
+            if (!until.isAfter(quoteSoonLimit)) {
+                String level = until.isBefore(today) ? "HIGH" : "MEDIUM";
+                alerts.add(new DashboardStats.Alert("QUOTATION_EXPIRING", level, quotation.getId(),
+                        quotation.getQuoteNo(), quotation.getCustomerName(), until.toString(), null));
+            }
+        }
+
+        Map<Long, List<Payment>> paymentsByOrder = paymentRepository.findAll().stream()
+                .collect(Collectors.groupingBy(Payment::getOrderId));
+        for (SalesOrder order : orders) {
+            if (ACTIVE_ORDER_STATUS.contains(order.getStatus()) && order.getDeliveryDate() != null) {
+                LocalDate delivery = order.getDeliveryDate();
+                if (delivery.isBefore(today)) {
+                    alerts.add(new DashboardStats.Alert("ORDER_OVERDUE", "HIGH", order.getId(),
+                            order.getOrderNo(), order.getCustomerName(), delivery.toString(), null));
+                } else if (!delivery.isAfter(dueSoonLimit)) {
+                    alerts.add(new DashboardStats.Alert("ORDER_DUE_SOON", "MEDIUM", order.getId(),
+                            order.getOrderNo(), order.getCustomerName(), delivery.toString(), null));
+                }
+            }
+            if (!"CANCELLED".equals(order.getStatus()) && order.getDeliveryDate() != null
+                    && order.getDeliveryDate().isBefore(today)) {
+                BigDecimal received = paymentsByOrder.getOrDefault(order.getId(), List.of()).stream()
+                        .map(Payment::getAmount)
+                        .filter(a -> a != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal outstanding = nvl(order.getTotalAmount()).subtract(received);
+                if (outstanding.compareTo(BigDecimal.ZERO) > 0) {
+                    alerts.add(new DashboardStats.Alert("RECEIVABLE_OVERDUE", "HIGH", order.getId(),
+                            order.getOrderNo(), order.getCustomerName(), order.getDeliveryDate().toString(),
+                            outstanding));
+                }
+            }
+        }
+
+        alerts.sort(Comparator.comparing((DashboardStats.Alert a) -> "HIGH".equals(a.getLevel()) ? 0 : 1)
+                .thenComparing(DashboardStats.Alert::getDate));
+        return alerts.size() > 30 ? new ArrayList<>(alerts.subList(0, 30)) : alerts;
     }
 
     private BigDecimal nvl(BigDecimal value) {

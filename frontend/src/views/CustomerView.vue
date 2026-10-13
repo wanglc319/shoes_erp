@@ -11,6 +11,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="code" :label="t('code')" width="140" />
@@ -74,6 +75,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { customerApi } from '../api'
+import { exportCsv } from '../csv'
 import { COUNTRIES, CUSTOMER_LEVELS, PAYMENT_TERMS } from '../enums'
 
 const { t } = useI18n()
@@ -82,6 +84,18 @@ const total = ref(0)
 const visible = ref(false)
 const query = reactive({ keyword: '', country: '', level: '', page: 1, size: 10 })
 const form = reactive({})
+
+const exportRows = async () => {
+  const res = await customerApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('customers', [
+    t('code'), t('name'), t('nameEn'), t('contact'), t('phone'), t('email'),
+    t('country'), t('level'), t('paymentTerms')
+  ], records.map((row) => [
+    row.code, row.name, row.nameEn, row.contactPerson, row.phone, row.email,
+    row.country, row.level, row.paymentTerms
+  ]))
+}
 
 const levelTag = (level) => (level === 'A' ? 'danger' : level === 'B' ? 'warning' : 'info')
 

@@ -8,6 +8,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
       <el-table-column prop="shipmentNo" :label="t('shipmentNo')" width="150" />
@@ -91,6 +92,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { shipmentApi, orderApi } from '../api'
 import { printPackingList, printInvoice } from '../print'
+import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { SHIPMENT_STATUSES, PORT_OF_LOADING, PORT_OF_DESTINATION, today } from '../enums'
 
@@ -100,6 +102,18 @@ const rows = ref([])
 const total = ref(0)
 const visible = ref(false)
 const orders = ref([])
+
+const exportRows = async () => {
+  const res = await shipmentApi.page({ ...query, page: 1, size: 200 })
+  const records = res.data.records || []
+  exportCsv('shipments', [
+    t('shipmentNo'), t('orderNo'), t('customer'), t('shipDate'), t('containerNo'),
+    t('vessel'), t('quantity'), t('totalAmount'), t('status')
+  ], records.map((row) => [
+    row.shipmentNo, row.orderNo, row.customerName, row.shipDate, row.containerNo,
+    row.vessel, row.totalQuantity, row.totalAmount, label(row.status)
+  ]))
+}
 const query = reactive({ keyword: '', status: '', page: 1, size: 10 })
 const form = reactive({ items: [] })
 

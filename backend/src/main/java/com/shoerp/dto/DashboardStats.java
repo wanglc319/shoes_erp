@@ -35,6 +35,30 @@ public class DashboardStats {
 
     private java.util.List<CountryAmount> countryDistribution = new java.util.ArrayList<>();
 
+    private java.util.List<Alert> alerts = new java.util.ArrayList<>();
+
+    @Data
+    public static class Alert {
+        private String type;
+        private String level;
+        private Long refId;
+        private String refNo;
+        private String name;
+        private String date;
+        private java.math.BigDecimal amount;
+
+        public Alert(String type, String level, Long refId, String refNo, String name, String date,
+                     java.math.BigDecimal amount) {
+            this.type = type;
+            this.level = level;
+            this.refId = refId;
+            this.refNo = refNo;
+            this.name = name;
+            this.date = date;
+            this.amount = amount;
+        }
+    }
+
     @Data
     public static class StatusCount {
         private String status;
