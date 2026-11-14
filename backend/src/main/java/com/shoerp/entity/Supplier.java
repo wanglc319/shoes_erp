@@ -11,7 +11,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "supplier", uniqueConstraints = @UniqueConstraint(columnNames = "code"))
-public class Supplier extends BaseEntity {
+public class Supplier extends OwnedEntity {
 
     @Column(nullable = false, length = 40)
     private String code;

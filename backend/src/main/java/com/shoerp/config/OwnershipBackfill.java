@@ -18,7 +18,7 @@ public class OwnershipBackfill implements CommandLineRunner {
     private static final Logger log = LoggerFactory.getLogger(OwnershipBackfill.class);
 
     private static final String[] TABLES = {
-            "customer", "quotation", "sales_order", "shipment", "purchase_order", "payment"
+            "customer", "supplier", "quotation", "sales_order", "shipment", "purchase_order", "payment"
     };
 
     private final JdbcTemplate jdbcTemplate;

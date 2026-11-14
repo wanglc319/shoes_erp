@@ -9,15 +9,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.shoerp.common.ApiResponse;
 import com.shoerp.common.ExcelResponse;
 import com.shoerp.common.PageResult;
+import com.shoerp.dto.ImportPreview;
 import com.shoerp.dto.QuotationRequest;
 import com.shoerp.entity.Quotation;
 import com.shoerp.entity.SalesOrder;
 import com.shoerp.service.ExcelExportService;
 import com.shoerp.service.OrderService;
+import com.shoerp.service.PiImportService;
 import com.shoerp.service.QuotationService;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,11 +35,14 @@ public class QuotationController {
 
     private final ExcelExportService excelExportService;
 
+    private final PiImportService piImportService;
+
     public QuotationController(QuotationService quotationService, OrderService orderService,
-                               ExcelExportService excelExportService) {
+                               ExcelExportService excelExportService, PiImportService piImportService) {
         this.quotationService = quotationService;
         this.orderService = orderService;
         this.excelExportService = excelExportService;
+        this.piImportService = piImportService;
     }
 
     @GetMapping("/{id}/export")
@@ -53,6 +59,22 @@ public class QuotationController {
                                                    @RequestParam(defaultValue = "1") int page,
                                                    @RequestParam(defaultValue = "10") int size) {
         return ApiResponse.success(quotationService.page(keyword, status, customerId, page, size));
+    }
+
+    /**
+     * 拖入 Excel/CSV 报价单，解析成明细供预览。
+     */
+    @PostMapping("/import-preview")
+    public ApiResponse<ImportPreview> importPreview(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(piImportService.preview(file));
+    }
+
+    /**
+     * 拖入报价图片，走 OCR 解析成明细。
+     */
+    @PostMapping("/ocr-preview")
+    public ApiResponse<ImportPreview> ocrPreview(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(piImportService.ocrPreview(file));
     }
 
     @GetMapping("/{id}")

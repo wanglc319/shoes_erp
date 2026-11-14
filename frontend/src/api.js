@@ -66,7 +66,22 @@ export const resourceApi = (path) => ({
 
 export const shoeApi = {
   ...resourceApi('/shoes'),
-  nextStyleNo: (supplierId) => http.get('/shoes/next-style-no', { params: { supplierId } })
+  nextStyleNo: (supplierId) => http.get('/shoes/next-style-no', { params: { supplierId } }),
+  checkStyleNo: (styleNo, excludeId) =>
+    http.get('/shoes/check-style-no', { params: { styleNo, excludeId } })
+}
+
+export const sampleShareApi = {
+  list: () => http.get('/sample-shares'),
+  create: (data) => http.post('/sample-shares', data),
+  remove: (id) => http.delete(`/sample-shares/${id}`)
+}
+
+export const publicAlbumApi = {
+  get: (token) =>
+    axios
+      .get(`${import.meta.env.BASE_URL}api/public/sample-shares/${token}`)
+      .then((response) => response.data)
 }
 export const supplierApi = resourceApi('/suppliers')
 export const customerApi = resourceApi('/customers')
@@ -79,7 +94,23 @@ export const userApi = resourceApi('/users')
 export const quotationApi = {
   ...resourceApi('/quotations'),
   updateStatus: (id, status) => http.post(`/quotations/${id}/status`, null, { params: { status } }),
-  toOrder: (id) => http.post(`/quotations/${id}/to-order`)
+  toOrder: (id) => http.post(`/quotations/${id}/to-order`),
+  importPreview: (file) => {
+    const data = new FormData()
+    data.append('file', file)
+    return http.post('/quotations/import-preview', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000
+    })
+  },
+  ocrPreview: (file) => {
+    const data = new FormData()
+    data.append('file', file)
+    return http.post('/quotations/ocr-preview', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    })
+  }
 }
 export const orderApi = {
   ...resourceApi('/orders'),

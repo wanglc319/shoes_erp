@@ -17,6 +17,7 @@ import com.shoerp.entity.Supplier;
 import com.shoerp.repository.PurchaseOrderRepository;
 import com.shoerp.repository.ShoeRepository;
 import com.shoerp.repository.SupplierRepository;
+import com.shoerp.security.CurrentUser;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -58,6 +59,9 @@ public class SupplierService {
             if (enabled != null) {
                 predicates.add(cb.equal(root.get("enabled"), enabled));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<Supplier> result = supplierRepository.findAll(spec, PageQuery.of(page, size));
@@ -68,13 +72,18 @@ public class SupplierService {
     public List<Supplier> listEnabled() {
         return supplierRepository.findAll(Sort.by(Sort.Direction.ASC, "name")).stream()
                 .filter(s -> Boolean.TRUE.equals(s.getEnabled()))
+                .filter(s -> CurrentUser.owns(s.getOwnerId()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public Supplier getById(Long id) {
-        return supplierRepository.findById(id)
+        Supplier supplier = supplierRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Supplier not found"));
+        if (!CurrentUser.owns(supplier.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own suppliers");
+        }
+        return supplier;
     }
 
     @Transactional
@@ -99,6 +108,9 @@ public class SupplierService {
         if (payload.getName() == null || payload.getName().isBlank()) {
             throw new BusinessException("Supplier name is required");
         }
+        if (supplier.getOwnerId() == null) {
+            supplier.setOwnerId(CurrentUser.id());
+        }
         supplier.setCode(payload.getCode());
         supplier.setName(payload.getName());
         supplier.setNameEn(payload.getNameEn());
@@ -118,9 +130,7 @@ public class SupplierService {
 
     @Transactional
     public void delete(Long id) {
-        if (!supplierRepository.existsById(id)) {
-            throw new BusinessException(404, "Supplier not found");
-        }
+        getById(id);
         if (shoeRepository.existsBySupplierId(id)) {
             throw new BusinessException("Supplier is referenced by shoes and cannot be deleted");
         }

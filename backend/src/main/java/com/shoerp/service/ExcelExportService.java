@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
@@ -32,6 +33,7 @@ import com.shoerp.entity.PurchaseOrder;
 import com.shoerp.entity.PurchaseOrderItem;
 import com.shoerp.entity.Quotation;
 import com.shoerp.entity.QuotationItem;
+import com.shoerp.entity.Shoe;
 
 /**
  * 单据 Excel 导出。统一生成 xlsx，支持在明细中嵌入鞋款图片。
@@ -174,6 +176,105 @@ public class ExcelExportService {
             return toBytes(workbook);
         } catch (IOException ex) {
             throw new BusinessException(500, "Failed to export inquiry: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * 样品贴纸：每行 3 张，每张 4 列 3 行，只含款号、材质、工厂和日期，不含价格。
+     */
+    public byte[] exportShoeStickers(List<Shoe> shoes, Map<Long, String> factoryCodes, int perRow) {
+        int columns = Math.max(1, Math.min(4, perRow));
+        try (XSSFWorkbook workbook = new XSSFWorkbook()) {
+            XSSFSheet sheet = workbook.createSheet("Stickers");
+            StickerStyles styles = new StickerStyles(workbook);
+            for (int i = 0; i < columns * 4; i++) {
+                sheet.setColumnWidth(i, 13 * 256);
+            }
+            int perBlockRows = 3;
+            int perBlockCols = 4;
+            for (int idx = 0; idx < shoes.size(); idx++) {
+                int blockRow = (idx / columns) * perBlockRows;
+                int blockCol = (idx % columns) * perBlockCols;
+                writeSticker(sheet, styles, shoes.get(idx), factoryCodes, blockRow, blockCol,
+                        perBlockRows, perBlockCols);
+            }
+            return toBytes(workbook);
+        } catch (IOException ex) {
+            throw new BusinessException(500, "Failed to export stickers: " + ex.getMessage());
+        }
+    }
+
+    private void writeSticker(XSSFSheet sheet, StickerStyles styles, Shoe shoe,
+                              Map<Long, String> factoryCodes, int blockRow, int blockCol,
+                              int blockRows, int blockCols) {
+        for (int r = 0; r < blockRows; r++) {
+            Row row = sheet.getRow(blockRow + r);
+            if (row == null) {
+                row = sheet.createRow(blockRow + r);
+            }
+            for (int c = 0; c < blockCols; c++) {
+                Cell cell = row.getCell(blockCol + c);
+                if (cell == null) {
+                    cell = row.createCell(blockCol + c);
+                }
+                cell.setCellStyle(styles.border);
+            }
+        }
+        sheet.getRow(blockRow).setHeightInPoints(30);
+        sheet.getRow(blockRow + 1).setHeightInPoints(18);
+        sheet.getRow(blockRow + 2).setHeightInPoints(18);
+
+        Cell styleNoCell = sheet.getRow(blockRow).getCell(blockCol);
+        styleNoCell.setCellValue(nvl(shoe.getStyleNo()));
+        styleNoCell.setCellStyle(styles.styleNo);
+        sheet.addMergedRegion(new CellRangeAddress(blockRow, blockRow, blockCol, blockCol + blockCols - 1));
+
+        Cell materialCell = sheet.getRow(blockRow + 1).getCell(blockCol);
+        materialCell.setCellValue("Upper: " + nvl(shoe.getUpperMaterial())
+                + "    Sole: " + nvl(shoe.getSoleMaterial())
+                + "    Size: " + nvl(shoe.getSizeRange()));
+        materialCell.setCellStyle(styles.body);
+        sheet.addMergedRegion(new CellRangeAddress(blockRow + 1, blockRow + 1, blockCol, blockCol + blockCols - 1));
+
+        String factory = factoryCodes.getOrDefault(shoe.getSupplierId(), "-");
+        LocalDate created = shoe.getCreatedAt() == null ? LocalDate.now() : shoe.getCreatedAt().toLocalDate();
+        Cell infoCell = sheet.getRow(blockRow + 2).getCell(blockCol);
+        infoCell.setCellValue("Factory: " + factory + "    Date: " + created);
+        infoCell.setCellStyle(styles.body);
+        sheet.addMergedRegion(new CellRangeAddress(blockRow + 2, blockRow + 2, blockCol, blockCol + blockCols - 1));
+    }
+
+    private static final class StickerStyles {
+
+        private final CellStyle border;
+
+        private final CellStyle styleNo;
+
+        private final CellStyle body;
+
+        private StickerStyles(XSSFWorkbook workbook) {
+            border = workbook.createCellStyle();
+            border.setBorderTop(BorderStyle.MEDIUM);
+            border.setBorderBottom(BorderStyle.MEDIUM);
+            border.setBorderLeft(BorderStyle.MEDIUM);
+            border.setBorderRight(BorderStyle.MEDIUM);
+
+            Font styleNoFont = workbook.createFont();
+            styleNoFont.setBold(true);
+            styleNoFont.setFontHeightInPoints((short) 16);
+            styleNo = workbook.createCellStyle();
+            styleNo.cloneStyleFrom(border);
+            styleNo.setFont(styleNoFont);
+            styleNo.setAlignment(HorizontalAlignment.CENTER);
+            styleNo.setVerticalAlignment(VerticalAlignment.CENTER);
+
+            Font bodyFont = workbook.createFont();
+            bodyFont.setFontHeightInPoints((short) 9);
+            body = workbook.createCellStyle();
+            body.cloneStyleFrom(border);
+            body.setFont(bodyFont);
+            body.setAlignment(HorizontalAlignment.CENTER);
+            body.setVerticalAlignment(VerticalAlignment.CENTER);
         }
     }
 

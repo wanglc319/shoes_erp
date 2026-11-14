@@ -2,7 +2,12 @@ package com.shoerp.service;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
@@ -105,6 +110,54 @@ public class ShoeService {
                 .orElseThrow(() -> new BusinessException(404, "Shoe not found"));
         shoe.getImages().size();
         return shoe;
+    }
+
+    @Transactional(readOnly = true)
+    public Shoe findByStyleNo(String styleNo) {
+        if (styleNo == null || styleNo.isBlank()) {
+            return null;
+        }
+        return shoeRepository.findByStyleNo(styleNo.trim()).orElse(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Shoe> listByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Shoe> found = shoeRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Shoe::getId, shoe -> shoe));
+        List<Shoe> result = new ArrayList<>();
+        for (Long id : ids) {
+            Shoe shoe = found.get(id);
+            if (shoe != null) {
+                shoe.getImages().size();
+                result.add(shoe);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 供应商展示名：优先「名称 (工厂代码)」，贴纸导出用。
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, String> factoryNames(List<Shoe> shoes) {
+        Set<Long> supplierIds = shoes.stream()
+                .map(Shoe::getSupplierId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> result = new HashMap<>();
+        if (supplierIds.isEmpty()) {
+            return result;
+        }
+        for (Supplier supplier : supplierRepository.findAllById(supplierIds)) {
+            String code = supplier.getShortCode();
+            result.put(supplier.getId(), code == null || code.isBlank()
+                    ? supplier.getName()
+                    : supplier.getName() + " (" + code + ")");
+        }
+        return result;
     }
 
     @Transactional

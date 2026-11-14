@@ -1,6 +1,7 @@
 <template>
   <div class="page-card">
     <h2 class="page-title">{{ t('suppliers') }}</h2>
+    <div v-if="!isAdmin" class="muted" style="margin-bottom:10px">{{ t('ownerOnlyHint') }}</div>
     <div class="toolbar">
       <el-input v-model="query.keyword" :placeholder="t('keyword')" style="width:220px" clearable @keyup.enter="load" />
       <el-select v-model="query.type" clearable :placeholder="t('category')" style="width:150px">
@@ -77,9 +78,11 @@ import { supplierApi } from '../api'
 import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { SUPPLIER_TYPES, COUNTRIES, PAYMENT_TERMS } from '../enums'
+import { session } from '../permissions'
 
 const { t, te } = useI18n()
 const label = (v) => enumLabel(t, te, v)
+const isAdmin = (session.user.role === 'ADMIN')
 const rows = ref([])
 const total = ref(0)
 const visible = ref(false)

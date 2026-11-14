@@ -14,10 +14,12 @@ import FinanceView from './views/FinanceView.vue'
 import FxView from './views/FxView.vue'
 import UserView from './views/UserView.vue'
 import PermissionView from './views/PermissionView.vue'
+import ShareView from './views/ShareView.vue'
 import { can } from './permissions'
 
 const routes = [
   { path: '/login', component: LoginView },
+  { path: '/share/:token', component: ShareView, meta: { public: true } },
   {
     path: '/',
     component: LayoutView,
@@ -59,6 +61,9 @@ const defaultPath = () => {
 }
 
 router.beforeEach((to) => {
+  if (to.meta?.public) {
+    return
+  }
   const token = localStorage.getItem('token')
   if (to.path !== '/login' && !token) {
     return '/login'

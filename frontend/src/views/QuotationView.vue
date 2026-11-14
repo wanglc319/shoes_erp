@@ -8,6 +8,7 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button @click="openImport">{{ t('importFile') }}</el-button>
       <el-button @click="exportRows">{{ t('export') }}</el-button>
     </div>
     <el-table :data="rows" stripe>
@@ -94,6 +95,48 @@
         <el-button type="primary" @click="save">{{ t('save') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="importVisible" :title="t('importPreview')" width="820px">
+      <el-upload
+        drag
+        :show-file-list="false"
+        accept=".xlsx,.xls,.csv,image/*"
+        :http-request="handleImportFile"
+        :disabled="importLoading"
+        style="width:100%"
+      >
+        <div class="import-drop">
+          <div class="import-plus">+</div>
+          <div>{{ t('importHint') }}</div>
+          <div class="muted" style="margin-top:4px">{{ t('ocrHint') }}</div>
+        </div>
+      </el-upload>
+
+      <div v-if="importWarnings.length" class="import-warnings">
+        <div v-for="(warning, index) in importWarnings" :key="index">{{ warning }}</div>
+      </div>
+
+      <el-table v-if="importRows.length" :data="importRows" size="small" style="margin-top:12px" max-height="320">
+        <el-table-column prop="styleNo" :label="t('styleNo')" width="130" />
+        <el-table-column prop="productName" :label="t('nameEn')" min-width="140" />
+        <el-table-column prop="material" :label="t('material')" width="110" />
+        <el-table-column prop="quantity" :label="t('quantity')" width="90" />
+        <el-table-column prop="unitPrice" :label="t('unitPrice')" width="100" />
+        <el-table-column prop="leadDate" :label="t('deliveryDate')" width="110" />
+        <el-table-column :label="t('status')" width="110">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.matched ? 'success' : 'info'">
+              {{ row.matched ? t('matchedShoe') : t('unmatchedShoe') }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <template #footer>
+        <el-button @click="importVisible = false">{{ t('cancel') }}</el-button>
+        <el-button type="primary" :disabled="!importRows.length" @click="applyImport">{{ t('applyToPi') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -113,6 +156,10 @@ const rows = ref([])
 const total = ref(0)
 const visible = ref(false)
 const customers = ref([])
+const importVisible = ref(false)
+const importLoading = ref(false)
+const importRows = ref([])
+const importWarnings = ref([])
 
 const exportRows = async () => {
   const res = await quotationApi.page({ ...query, page: 1, size: 200 })
@@ -211,5 +258,65 @@ const remove = async (row) => {
   load()
 }
 
+const openImport = () => {
+  importRows.value = []
+  importWarnings.value = []
+  importVisible.value = true
+}
+
+const handleImportFile = async ({ file }) => {
+  importLoading.value = true
+  try {
+    const isImage = (file.type || '').startsWith('image/')
+    const res = isImage
+      ? await quotationApi.ocrPreview(file)
+      : await quotationApi.importPreview(file)
+    importRows.value = res.data.rows || []
+    importWarnings.value = res.data.warnings || []
+    if (!importRows.value.length) {
+      ElMessage.warning(t('importEmpty'))
+    }
+  } finally {
+    importLoading.value = false
+  }
+}
+
+const applyImport = async () => {
+  if (!importRows.value.length) return
+  if (!visible.value) {
+    await open()
+  }
+  const mapped = importRows.value.map((row) => ({
+    shoeId: row.shoeId,
+    styleNo: row.styleNo,
+    productName: row.productName,
+    material: row.material,
+    color: row.color,
+    sizeRange: row.sizeRange,
+    quantity: row.quantity || 0,
+    unitPrice: row.unitPrice || 0,
+    unit: 'PRS',
+    remark: row.leadDate ? `Lead: ${row.leadDate}` : null
+  }))
+  form.items = (form.items || []).concat(mapped)
+  importVisible.value = false
+  ElMessage.success(t('success'))
+}
+
 onMounted(load)
 </script>
+
+<style scoped>
+.import-drop { padding: 20px; color: #667085; font-size: 13px; }
+.import-plus { font-size: 26px; line-height: 1; color: #98a2b3; margin-bottom: 4px; }
+.import-warnings {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fffaeb;
+  color: #b54708;
+  font-size: 12px;
+}
+.import-warnings > div + div { margin-top: 4px; }
+.muted { color: #98a2b3; font-size: 12px; }
+</style>

@@ -48,6 +48,13 @@ app:
   default-password: 123456
   upload-dir: uploads
 
+erp:
+  ocr:
+    enabled: false
+    base-url: ""
+    api-key: ""
+    model: ""
+
 logging:
   level:
     root: info
