@@ -55,6 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/shoes/**").access(menu("shoes"))
                         .requestMatchers("/api/suppliers/**").access(menu("suppliers"))
                         .requestMatchers("/api/customers/**").access(menu("customers"))
+                        .requestMatchers("/api/inquiries/**").access(menu("inquiries"))
                         .requestMatchers("/api/quotations/**").access(menu("quotations"))
                         .requestMatchers("/api/orders/**").access(menu("orders"))
                         .requestMatchers("/api/shipments/**").access(menu("shipments"))

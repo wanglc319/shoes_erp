@@ -17,7 +17,7 @@ export const UPPER_MATERIALS = [
 
 export const SOLE_MATERIALS = ['EVA', 'Rubber', 'TPR', 'Phylon', 'MD', 'PVC', 'TPU']
 
-export const SIZE_RANGES = ['27-35', '35-41', '36-45', '39-46', '40-47', '41-48']
+export const SIZE_RANGES = ['36-41', '41-46', 'UK4-8', '22-27', '28-33']
 
 export const SUPPLIER_TYPES = ['Factory', 'Mould', 'Material', 'Accessory', 'Trading', 'Agent']
 
@@ -73,6 +73,7 @@ export const MENUS = [
   { key: 'shoes', titleKey: 'shoes' },
   { key: 'suppliers', titleKey: 'suppliers' },
   { key: 'customers', titleKey: 'customers' },
+  { key: 'inquiries', titleKey: 'inquiries' },
   { key: 'quotations', titleKey: 'quotations' },
   { key: 'orders', titleKey: 'orders' },
   { key: 'shipments', titleKey: 'shipments' },
@@ -85,6 +86,7 @@ export const MENUS = [
 
 export const PURCHASE_STATUSES = ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'DELIVERED', 'CANCELLED']
 
+export const INQUIRY_STATUSES = ['DRAFT', 'SENT', 'QUOTED', 'CLOSED', 'CANCELLED']
 export const PAYMENT_METHODS = ['T/T', 'L/C', 'D/P', 'CAD', 'PayPal', 'Western Union', 'Cash']
 
 export const RECEIVABLE_STATUSES = ['UNPAID', 'PARTIAL', 'PAID', 'OVERDUE']

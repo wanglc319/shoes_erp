@@ -29,6 +29,7 @@ import com.shoerp.repository.CustomerRepository;
 import com.shoerp.repository.QuotationRepository;
 import com.shoerp.repository.SalesOrderRepository;
 import com.shoerp.repository.ShipmentRepository;
+import com.shoerp.security.CurrentUser;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -74,10 +75,14 @@ public class OrderService {
             if (customerId != null) {
                 predicates.add(cb.equal(root.get("customerId"), customerId));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<SalesOrder> result = orderRepository.findAll(spec, PageQuery.of(page, size));
         result.getContent().forEach(o -> o.getItems().size());
+        maskCost(result.getContent());
         return PageResult.of(result);
     }
 
@@ -85,8 +90,20 @@ public class OrderService {
     public SalesOrder getById(Long id) {
         SalesOrder order = orderRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Order not found"));
+        if (!CurrentUser.owns(order.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own orders");
+        }
         order.getItems().size();
+        maskCost(List.of(order));
         return order;
+    }
+
+    /** 非管理员不可见成本与毛利数据。 */
+    private void maskCost(List<SalesOrder> orders) {
+        if (CurrentUser.isAdmin()) {
+            return;
+        }
+        orders.forEach(order -> order.getItems().forEach(item -> item.setCostPrice(null)));
     }
 
     @Transactional
@@ -116,6 +133,9 @@ public class OrderService {
         }
 
         order.setOrderNo(orderNo);
+        if (order.getOwnerId() == null) {
+            order.setOwnerId(CurrentUser.id());
+        }
         order.setQuotationId(request.getQuotationId());
         order.setCustomerId(customer.getId());
         order.setCustomerName(customer.getName());

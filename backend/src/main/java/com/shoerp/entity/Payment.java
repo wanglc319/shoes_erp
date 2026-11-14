@@ -14,7 +14,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "payment", uniqueConstraints = @UniqueConstraint(columnNames = "payment_no"))
-public class Payment extends BaseEntity {
+public class Payment extends OwnedEntity {
 
     @Column(name = "payment_no", nullable = false, length = 40)
     private String paymentNo;
@@ -45,4 +45,8 @@ public class Payment extends BaseEntity {
 
     @Column(length = 300)
     private String remark;
+
+    /** 收款凭证（银行回单截图）路径 */
+    @Column(name = "attachment_url", length = 500)
+    private String attachmentUrl;
 }

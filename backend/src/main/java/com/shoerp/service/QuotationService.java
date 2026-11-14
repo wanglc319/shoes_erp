@@ -22,6 +22,8 @@ import com.shoerp.entity.Quotation;
 import com.shoerp.entity.QuotationItem;
 import com.shoerp.repository.CustomerRepository;
 import com.shoerp.repository.QuotationRepository;
+import com.shoerp.repository.ShoeRepository;
+import com.shoerp.security.CurrentUser;
 import com.shoerp.repository.SalesOrderRepository;
 
 import jakarta.persistence.criteria.Predicate;
@@ -35,13 +37,17 @@ public class QuotationService {
 
     private final SalesOrderRepository orderRepository;
 
+    private final ShoeRepository shoeRepository;
+
     private final DocumentNoGenerator noGenerator;
 
     public QuotationService(QuotationRepository quotationRepository, CustomerRepository customerRepository,
-                            SalesOrderRepository orderRepository, DocumentNoGenerator noGenerator) {
+                            SalesOrderRepository orderRepository, ShoeRepository shoeRepository,
+                            DocumentNoGenerator noGenerator) {
         this.quotationRepository = quotationRepository;
         this.customerRepository = customerRepository;
         this.orderRepository = orderRepository;
+        this.shoeRepository = shoeRepository;
         this.noGenerator = noGenerator;
     }
 
@@ -61,6 +67,9 @@ public class QuotationService {
             if (customerId != null) {
                 predicates.add(cb.equal(root.get("customerId"), customerId));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<Quotation> result = quotationRepository.findAll(spec, PageQuery.of(page, size));
@@ -72,6 +81,9 @@ public class QuotationService {
     public Quotation getById(Long id) {
         Quotation quotation = quotationRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Quotation not found"));
+        if (!CurrentUser.owns(quotation.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own quotations");
+        }
         quotation.getItems().size();
         return quotation;
     }
@@ -103,6 +115,9 @@ public class QuotationService {
         }
 
         quotation.setQuoteNo(quoteNo);
+        if (quotation.getOwnerId() == null) {
+            quotation.setOwnerId(CurrentUser.id());
+        }
         quotation.setCustomerId(customer.getId());
         quotation.setCustomerName(customer.getName());
         quotation.setQuoteDate(parseDate(request.getQuoteDate(), LocalDate.now()));
@@ -124,6 +139,7 @@ public class QuotationService {
                 item.setStyleNo(payload.getStyleNo());
                 item.setProductName(payload.getProductName());
                 item.setMaterial(payload.getMaterial());
+                item.setImageUrl(resolveImage(payload.getImageUrl(), payload.getShoeId()));
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
                 item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));
@@ -157,6 +173,16 @@ public class QuotationService {
         Quotation quotation = getById(id);
         quotation.setStatus(StatusCatalog.require(status, StatusCatalog.QUOTATION, "Status"));
         return quotationRepository.save(quotation);
+    }
+
+    private String resolveImage(String imageUrl, Long shoeId) {
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            return imageUrl;
+        }
+        if (shoeId == null) {
+            return null;
+        }
+        return shoeRepository.findById(shoeId).map(com.shoerp.entity.Shoe::getImageUrl).orElse(null);
     }
 
     private Customer resolveCustomer(Long customerId) {

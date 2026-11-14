@@ -64,9 +64,17 @@ export const resourceApi = (path) => ({
   options: () => http.get(`${path}/options`)
 })
 
-export const shoeApi = resourceApi('/shoes')
+export const shoeApi = {
+  ...resourceApi('/shoes'),
+  nextStyleNo: (supplierId) => http.get('/shoes/next-style-no', { params: { supplierId } })
+}
 export const supplierApi = resourceApi('/suppliers')
 export const customerApi = resourceApi('/customers')
+export const inquiryApi = {
+  ...resourceApi('/inquiries'),
+  fromShoes: (data) => http.post('/inquiries/from-shoes', data),
+  updateStatus: (id, status) => http.post(`/inquiries/${id}/status`, null, { params: { status } })
+}
 export const userApi = resourceApi('/users')
 export const quotationApi = {
   ...resourceApi('/quotations'),

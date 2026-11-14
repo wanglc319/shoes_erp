@@ -11,12 +11,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.shoerp.common.ApiResponse;
+import com.shoerp.common.ExcelResponse;
 import com.shoerp.common.PageResult;
 import com.shoerp.dto.QuotationRequest;
 import com.shoerp.entity.Quotation;
 import com.shoerp.entity.SalesOrder;
+import com.shoerp.service.ExcelExportService;
 import com.shoerp.service.OrderService;
 import com.shoerp.service.QuotationService;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/quotations")
@@ -26,9 +30,20 @@ public class QuotationController {
 
     private final OrderService orderService;
 
-    public QuotationController(QuotationService quotationService, OrderService orderService) {
+    private final ExcelExportService excelExportService;
+
+    public QuotationController(QuotationService quotationService, OrderService orderService,
+                               ExcelExportService excelExportService) {
         this.quotationService = quotationService;
         this.orderService = orderService;
+        this.excelExportService = excelExportService;
+    }
+
+    @GetMapping("/{id}/export")
+    public void export(@PathVariable Long id, HttpServletResponse response) throws java.io.IOException {
+        Quotation quotation = quotationService.getById(id);
+        ExcelResponse.write(response, excelExportService.exportQuotation(quotation),
+                "PI-" + quotation.getQuoteNo() + ".xlsx");
     }
 
     @GetMapping

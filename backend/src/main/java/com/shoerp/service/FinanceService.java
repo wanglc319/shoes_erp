@@ -22,6 +22,7 @@ import com.shoerp.entity.Payment;
 import com.shoerp.entity.SalesOrder;
 import com.shoerp.repository.PaymentRepository;
 import com.shoerp.repository.SalesOrderRepository;
+import com.shoerp.security.CurrentUser;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -55,6 +56,9 @@ public class FinanceService {
             if (orderId != null) {
                 predicates.add(cb.equal(root.get("orderId"), orderId));
             }
+            if (!CurrentUser.canViewAllFinance()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<Payment> result = paymentRepository.findAll(spec, PageQuery.of(page, size));
@@ -82,6 +86,7 @@ public class FinanceService {
             throw new BusinessException("Cannot record payments for a cancelled order");
         }
         payment.setOrderId(order.getId());
+        payment.setOwnerId(order.getOwnerId());
         payment.setOrderNo(order.getOrderNo());
         payment.setCustomerName(order.getCustomerName());
         payment.setCurrency(order.getCurrency());
@@ -92,6 +97,7 @@ public class FinanceService {
         payment.setAmount(amount);
         payment.setReference(payload.getReference());
         payment.setRemark(payload.getRemark());
+        payment.setAttachmentUrl(payload.getAttachmentUrl());
         return paymentRepository.save(payment);
     }
 
@@ -120,6 +126,11 @@ public class FinanceService {
 
     @Transactional(readOnly = true)
     public List<Payment> paymentsOf(Long orderId) {
+        SalesOrder order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(404, "Order not found"));
+        if (!CurrentUser.canViewAllFinance() && !CurrentUser.owns(order.getOwnerId())) {
+            throw new BusinessException(403, "You can only access payments of your own orders");
+        }
         return paymentRepository.findByOrderIdOrderByIdDesc(orderId);
     }
 
@@ -127,6 +138,9 @@ public class FinanceService {
     public ReceivableRow detail(Long orderId) {
         SalesOrder order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(404, "Order not found"));
+        if (!CurrentUser.canViewAllFinance() && !CurrentUser.owns(order.getOwnerId())) {
+            throw new BusinessException(403, "You can only access receivables of your own orders");
+        }
         Map<Long, List<Payment>> grouped = paymentRepository.findByOrderIdOrderByIdDesc(orderId).stream()
                 .collect(Collectors.groupingBy(Payment::getOrderId));
         return toRow(order, grouped.getOrDefault(orderId, List.of()));
@@ -143,6 +157,9 @@ public class FinanceService {
                         cb.like(root.get("customerName"), like)));
             }
             predicates.add(cb.notEqual(root.get("status"), "CANCELLED"));
+            if (!CurrentUser.canViewAllFinance()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<SalesOrder> result = orderRepository.findAll(spec, PageQuery.of(page, size));
@@ -162,6 +179,7 @@ public class FinanceService {
     public Map<String, Object> summary() {
         List<SalesOrder> orders = orderRepository.findAll().stream()
                 .filter(order -> !"CANCELLED".equals(order.getStatus()))
+                .filter(order -> CurrentUser.canViewAllFinance() || CurrentUser.owns(order.getOwnerId()))
                 .toList();
         List<Long> ids = orders.stream().map(SalesOrder::getId).toList();
         Map<Long, List<Payment>> grouped = ids.isEmpty()

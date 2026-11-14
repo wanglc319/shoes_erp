@@ -77,8 +77,8 @@ const pwdForm = reactive({ oldPassword: '', newPassword: '', confirm: '' })
 
 const paths = {
   dashboard: '/dashboard', shoes: '/shoes', suppliers: '/suppliers', customers: '/customers',
-  quotations: '/quotations', orders: '/orders', shipments: '/shipments', purchases: '/purchases',
-  finance: '/finance', fx: '/fx', users: '/users', permissions: '/permissions'
+  inquiries: '/inquiries', quotations: '/quotations', orders: '/orders', shipments: '/shipments',
+  purchases: '/purchases', finance: '/finance', fx: '/fx', users: '/users', permissions: '/permissions'
 }
 
 const menus = computed(() =>

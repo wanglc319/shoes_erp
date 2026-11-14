@@ -36,6 +36,7 @@
       <el-form :model="form" label-width="110px">
         <el-row :gutter="12">
           <el-col :span="12"><el-form-item :label="t('code')"><el-input v-model="form.code" :placeholder="t('optional')" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item :label="t('factoryCode')"><el-input v-model="form.shortCode" :placeholder="t('factoryCodeHint')" maxlength="10" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('category')">
             <el-select v-model="form.type" style="width:100%">
               <el-option v-for="ty in SUPPLIER_TYPES" :key="ty" :label="label(ty)" :value="ty" />

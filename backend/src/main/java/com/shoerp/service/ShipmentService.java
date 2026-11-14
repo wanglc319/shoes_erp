@@ -25,6 +25,7 @@ import com.shoerp.entity.Shipment;
 import com.shoerp.entity.ShipmentItem;
 import com.shoerp.repository.SalesOrderRepository;
 import com.shoerp.repository.ShipmentRepository;
+import com.shoerp.security.CurrentUser;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -59,6 +60,9 @@ public class ShipmentService {
             if (status != null && !status.isBlank()) {
                 predicates.add(cb.equal(root.get("status"), status));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<Shipment> result = shipmentRepository.findAll(spec, PageQuery.of(page, size));
@@ -70,6 +74,9 @@ public class ShipmentService {
     public Shipment getById(Long id) {
         Shipment shipment = shipmentRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Shipment not found"));
+        if (!CurrentUser.owns(shipment.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own shipments");
+        }
         shipment.getItems().size();
         return shipment;
     }
@@ -104,6 +111,9 @@ public class ShipmentService {
         validateShipmentQuantities(order, request.getId(), request.getItems());
 
         shipment.setShipmentNo(shipmentNo);
+        if (shipment.getOwnerId() == null) {
+            shipment.setOwnerId(CurrentUser.id());
+        }
         shipment.setOrderId(order.getId());
         shipment.setOrderNo(order.getOrderNo());
         shipment.setCustomerName(order.getCustomerName());

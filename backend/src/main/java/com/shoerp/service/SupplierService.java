@@ -109,6 +109,7 @@ public class SupplierService {
         supplier.setCountry(payload.getCountry());
         supplier.setPaymentTerms(payload.getPaymentTerms());
         supplier.setType(payload.getType());
+        supplier.setShortCode(payload.getShortCode());
         supplier.setRating(payload.getRating() == null ? 5 : Numbers.nonNegative(payload.getRating(), "Rating"));
         supplier.setEnabled(payload.getEnabled() == null || payload.getEnabled());
         supplier.setRemark(payload.getRemark());

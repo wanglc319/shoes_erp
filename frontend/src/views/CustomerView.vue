@@ -1,6 +1,7 @@
 <template>
   <div class="page-card">
     <h2 class="page-title">{{ t('customers') }}</h2>
+    <div v-if="!isAdmin" class="muted" style="margin-bottom:10px">{{ t('ownerOnlyHint') }}</div>
     <div class="toolbar">
       <el-input v-model="query.keyword" :placeholder="t('keyword')" style="width:200px" clearable @keyup.enter="load" />
       <el-select v-model="query.country" clearable filterable :placeholder="t('country')" style="width:150px">
@@ -71,14 +72,16 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { customerApi } from '../api'
 import { exportCsv } from '../csv'
 import { COUNTRIES, CUSTOMER_LEVELS, PAYMENT_TERMS } from '../enums'
+import { session } from '../permissions'
 
 const { t } = useI18n()
+const isAdmin = computed(() => session.user.role === 'ADMIN')
 const rows = ref([])
 const total = ref(0)
 const visible = ref(false)

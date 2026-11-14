@@ -34,6 +34,12 @@ public class PurchaseOrderItem extends BaseEntity {
     private String productName;
 
     @Column(length = 120)
+    private String material;
+
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(length = 120)
     private String color;
 
     @Column(name = "size_range", length = 80)

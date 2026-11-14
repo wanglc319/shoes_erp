@@ -43,6 +43,9 @@ public class Supplier extends BaseEntity {
     @Column(length = 30)
     private String type;
 
+    @Column(name = "short_code", length = 10)
+    private String shortCode;
+
     @Column(nullable = false)
     private Integer rating = 5;
 

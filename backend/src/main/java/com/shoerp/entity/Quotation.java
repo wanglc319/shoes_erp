@@ -21,7 +21,7 @@ import java.time.LocalDate;
 @Setter
 @Entity
 @Table(name = "quotation", uniqueConstraints = @UniqueConstraint(columnNames = "quote_no"))
-public class Quotation extends BaseEntity {
+public class Quotation extends OwnedEntity {
 
     @Column(name = "quote_no", nullable = false, length = 40)
     private String quoteNo;

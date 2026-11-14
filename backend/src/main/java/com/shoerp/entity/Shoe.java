@@ -63,6 +63,9 @@ public class Shoe extends BaseEntity {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    @Column(name = "price_options", columnDefinition = "TEXT")
+    private String priceOptions;
+
     @OneToMany(mappedBy = "shoe", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("sortOrder ASC, id ASC")
     private List<ShoeImage> images = new ArrayList<>();

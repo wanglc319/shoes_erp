@@ -22,10 +22,11 @@
           <el-tag size="small" :type="statusTag(row.status)">{{ label(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="300">
+      <el-table-column :label="t('actions')" width="400">
         <template #default="{ row }">
           <el-button link type="primary" @click="open(row)">{{ t('edit') }}</el-button>
           <el-button link @click="print(row)">{{ t('printPi') }}</el-button>
+          <el-button link type="warning" @click="exportPi(row)">{{ t('exportExcel') }}</el-button>
           <el-button link type="success" @click="toOrder(row)">{{ t('convertToOrder') }}</el-button>
           <el-button link type="danger" @click="remove(row)">{{ t('delete') }}</el-button>
         </template>
@@ -102,7 +103,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { quotationApi, customerApi, shoeApi } from '../api'
 import { printQuotation } from '../print'
-import { exportCsv } from '../csv'
+import { exportCsv, downloadExcel } from '../csv'
 import { enumLabel } from '../labels'
 import { QUOTATION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
@@ -124,6 +125,10 @@ const exportRows = async () => {
     row.tradeTerms, row.currency, row.totalAmount, label(row.status)
   ]))
 }
+const exportPi = async (row) => {
+  await downloadExcel(`/quotations/${row.id}/export`, `PI-${row.quoteNo}.xlsx`)
+}
+
 const shoes = ref([])
 const query = reactive({ keyword: '', status: '', page: 1, size: 10 })
 const form = reactive({ items: [] })

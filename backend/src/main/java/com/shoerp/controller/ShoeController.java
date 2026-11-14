@@ -42,6 +42,11 @@ public class ShoeController {
         return ApiResponse.success(shoeService.listEnabled());
     }
 
+    @GetMapping("/next-style-no")
+    public ApiResponse<String> nextStyleNo(@RequestParam(required = false) Long supplierId) {
+        return ApiResponse.success(shoeService.nextStyleNo(supplierId));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<Shoe> get(@PathVariable Long id) {
         return ApiResponse.success(shoeService.getById(id));

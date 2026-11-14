@@ -2,6 +2,7 @@ package com.shoerp.common;
 
 import java.util.stream.Collectors;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -95,6 +96,17 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ApiResponse.error(400, "Invalid value for parameter '" + ex.getName() + "'");
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String detail = ex.getMostSpecificCause().getMessage();
+        if (detail == null || detail.isBlank()) {
+            detail = "violates a data constraint";
+        }
+        log.warn("Data integrity violation: {}", detail);
+        return ApiResponse.error(400, "Invalid data: " + detail);
     }
 
     @ExceptionHandler(Exception.class)

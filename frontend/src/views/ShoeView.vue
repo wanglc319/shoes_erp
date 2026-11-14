@@ -11,8 +11,10 @@
       </el-select>
       <el-button type="primary" @click="load">{{ t('search') }}</el-button>
       <el-button @click="open()">{{ t('create') }}</el-button>
+      <el-button type="success" @click="openInquiry">{{ t('generateInquiry') }}</el-button>
     </div>
-    <el-table :data="rows" stripe>
+    <el-table :data="rows" stripe @selection-change="onSelectionChange">
+      <el-table-column type="selection" width="46" />
       <el-table-column :label="t('images')" width="90">
         <template #default="{ row }">
           <el-image
@@ -58,7 +60,7 @@
     <el-dialog v-model="visible" :title="form.id ? t('edit') : t('create')" width="820px">
       <el-form :model="form" label-width="120px">
         <el-row :gutter="12">
-          <el-col :span="12"><el-form-item :label="t('styleNo')"><el-input v-model="form.styleNo" :placeholder="t('optional')" /></el-form-item></el-col>
+          <el-col :span="12"><el-form-item :label="t('styleNo')"><el-input v-model="form.styleNo" :placeholder="t('styleNoAuto')" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('category')">
             <el-select v-model="form.category" filterable allow-create style="width:100%">
               <el-option v-for="c in SHOE_CATEGORIES" :key="c" :label="c" :value="c" />
@@ -82,8 +84,8 @@
             </el-select>
           </el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('supplier')">
-            <el-select v-model="form.supplierId" filterable clearable style="width:100%">
-              <el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" />
+            <el-select v-model="form.supplierId" filterable clearable style="width:100%" @change="onSupplierChange">
+              <el-option v-for="s in suppliers" :key="s.id" :label="factoryLabel(s)" :value="s.id" />
             </el-select>
           </el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('upperMaterial')">
@@ -99,6 +101,16 @@
           <el-col :span="8"><el-form-item :label="t('costPrice')"><el-input-number v-model="form.costPrice" :precision="2" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item :label="t('sellingPrice')"><el-input-number v-model="form.sellingPrice" :precision="2" :min="0" style="width:100%" /></el-form-item></el-col>
           <el-col :span="8"><el-form-item :label="t('moq')"><el-input-number v-model="form.moq" :min="0" style="width:100%" /></el-form-item></el-col>
+          <el-col :span="24"><el-form-item :label="t('priceOptions')">
+            <div style="width:100%">
+              <div v-for="(p, i) in priceRows" :key="i" style="display:flex;gap:8px;margin-bottom:6px">
+                <el-input v-model="p.label" :placeholder="t('material')" style="width:220px" />
+                <el-input-number v-model="p.price" :min="0" :precision="2" style="width:160px" />
+                <el-button link type="danger" @click="priceRows.splice(i, 1)">X</el-button>
+              </div>
+              <el-button size="small" @click="priceRows.push({ label: '', price: 0 })">+ {{ t('priceOptions') }}</el-button>
+            </div>
+          </el-form-item></el-col>
           <el-col :span="12"><el-form-item :label="t('status')">
             <el-select v-model="form.status" style="width:100%">
               <el-option v-for="s in SHOE_STATUSES" :key="s" :label="label(s)" :value="s" />
@@ -152,6 +164,24 @@
         <el-button type="primary" @click="save">{{ t('save') }}</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="inquiryVisible" :title="t('generateInquiry')" width="520px">
+      <el-form :model="inquiryForm" label-width="110px">
+        <el-form-item :label="t('selectFactory')">
+          <el-select v-model="inquiryForm.supplierId" filterable clearable style="width:100%">
+            <el-option v-for="s in suppliers" :key="s.id" :label="factoryLabel(s)" :value="s.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="t('remark')">
+          <el-input v-model="inquiryForm.remark" type="textarea" :rows="2" />
+        </el-form-item>
+      </el-form>
+      <div class="muted">{{ t('selectShoes') }}: {{ selectedRows.length }}</div>
+      <template #footer>
+        <el-button @click="inquiryVisible = false">{{ t('cancel') }}</el-button>
+        <el-button type="primary" @click="submitInquiry">{{ t('save') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -159,7 +189,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { shoeApi, supplierApi, fileApi } from '../api'
+import { shoeApi, supplierApi, fileApi, inquiryApi } from '../api'
 import { enumLabel } from '../labels'
 import {
   SHOE_CATEGORIES, SHOE_COLORS, SHOE_STATUSES, GENDERS,
@@ -177,6 +207,55 @@ const urlInput = ref('')
 const suppliers = ref([])
 const query = reactive({ keyword: '', category: '', gender: '', page: 1, size: 10 })
 const form = reactive({ images: [] })
+const selectedRows = ref([])
+const inquiryVisible = ref(false)
+const inquiryForm = reactive({ supplierId: null, remark: '' })
+const priceRows = ref([])
+
+const factoryLabel = (s) => (s.shortCode ? `${s.name} (${s.shortCode})` : s.name)
+
+const onSelectionChange = (selection) => {
+  selectedRows.value = selection
+}
+
+const openInquiry = async () => {
+  if (!selectedRows.value.length) {
+    ElMessage.warning(t('selectShoes'))
+    return
+  }
+  if (!suppliers.value.length) {
+    suppliers.value = (await supplierApi.options()).data
+  }
+  inquiryForm.supplierId = null
+  inquiryForm.remark = ''
+  inquiryVisible.value = true
+}
+
+const submitInquiry = async () => {
+  await inquiryApi.fromShoes({
+    supplierId: inquiryForm.supplierId,
+    shoeIds: selectedRows.value.map((row) => row.id),
+    remark: inquiryForm.remark
+  })
+  inquiryVisible.value = false
+  ElMessage.success(t('success'))
+}
+
+const onSupplierChange = async (supplierId) => {
+  if (form.id || form.styleNo || !supplierId) return
+  const res = await shoeApi.nextStyleNo(supplierId)
+  form.styleNo = res.data
+}
+
+const parsePriceOptions = (text) => {
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (e) {
+    return []
+  }
+}
 
 const coverOf = (row) => row.imageUrl || (row.images && row.images[0]?.imageUrl) || ''
 const imageUrlsOf = (row) => (row.images || []).map((i) => i.imageUrl)
@@ -198,12 +277,14 @@ const open = async (row) => {
   if (row) {
     const res = await shoeApi.get(row.id)
     Object.assign(form, res.data, { images: (res.data.images || []).map((i) => ({ ...i })) })
+    priceRows.value = parsePriceOptions(res.data.priceOptions)
   } else {
     Object.assign(form, {
       status: 'ACTIVE', enabled: true, category: 'Sneaker', gender: 'Unisex',
-      upperMaterial: 'Mesh', soleMaterial: 'EVA', sizeRange: '36-45',
+      upperMaterial: 'Mesh', soleMaterial: 'EVA', sizeRange: '36-41',
       color: 'White', costPrice: 0, sellingPrice: 0, moq: 600, images: []
     })
+    priceRows.value = []
   }
   visible.value = true
 }
@@ -241,7 +322,12 @@ const removeImage = (idx) => {
 }
 
 const save = async () => {
-  const payload = { ...form, images: form.images.map((img, i) => ({ ...img, sortOrder: i })) }
+  const validPrices = priceRows.value.filter((p) => p.label && p.price != null)
+  const payload = {
+    ...form,
+    priceOptions: validPrices.length ? JSON.stringify(validPrices) : null,
+    images: form.images.map((img, i) => ({ ...img, sortOrder: i }))
+  }
   if (payload.id) await shoeApi.update(payload.id, payload)
   else await shoeApi.create(payload)
   ElMessage.success(t('success'))

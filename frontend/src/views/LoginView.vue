@@ -20,8 +20,7 @@
             {{ t('login') }}
           </el-button>
         </el-form>
-        <div style="margin-top:16px;display:flex;justify-content:space-between;color:#667085;font-size:13px">
-          <span>{{ t('demoHint') }}</span>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;color:#667085;font-size:13px">
           <el-select v-model="locale" size="small" style="width:110px" @change="changeLocale">
             <el-option label="中文" value="zh" />
             <el-option label="English" value="en" />
@@ -43,7 +42,7 @@ import { setSession } from '../permissions'
 const { t, locale } = useI18n()
 const router = useRouter()
 const loading = ref(false)
-const form = reactive({ username: 'admin', password: 'admin123' })
+const form = reactive({ username: '', password: '' })
 
 const changeLocale = (value) => {
   localStorage.setItem('locale', value)

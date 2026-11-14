@@ -25,9 +25,11 @@ import com.shoerp.service.ShipmentService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.Order;
 
 @Slf4j
 @Component
+@Order(1)
 @RequiredArgsConstructor
 public class DemoDataInitializer implements CommandLineRunner {
 

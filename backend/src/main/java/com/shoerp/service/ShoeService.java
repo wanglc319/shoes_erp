@@ -1,5 +1,6 @@
 package com.shoerp.service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,7 +17,9 @@ import com.shoerp.common.PageResult;
 import com.shoerp.common.StatusCatalog;
 import com.shoerp.entity.Shoe;
 import com.shoerp.entity.ShoeImage;
+import com.shoerp.entity.Supplier;
 import com.shoerp.repository.ShoeRepository;
+import com.shoerp.repository.SupplierRepository;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -25,8 +28,38 @@ public class ShoeService {
 
     private final ShoeRepository shoeRepository;
 
-    public ShoeService(ShoeRepository shoeRepository) {
+    private final SupplierRepository supplierRepository;
+
+    public ShoeService(ShoeRepository shoeRepository, SupplierRepository supplierRepository) {
         this.shoeRepository = shoeRepository;
+        this.supplierRepository = supplierRepository;
+    }
+
+    /**
+     * 按 SN-年份-工厂代码-序号 生成建议款号，例如 SN-26-01-0001。
+     * 工厂代码取自供应商 shortCode，未维护时用 00。
+     */
+    @Transactional(readOnly = true)
+    public String nextStyleNo(Long supplierId) {
+        String factoryCode = "00";
+        if (supplierId != null) {
+            factoryCode = supplierRepository.findById(supplierId)
+                    .map(Supplier::getShortCode)
+                    .filter(code -> code != null && !code.isBlank())
+                    .orElse("00");
+        }
+        String year = String.format("%02d", LocalDate.now().getYear() % 100);
+        String prefix = "SN-" + year + "-" + factoryCode + "-";
+        String max = shoeRepository.findMaxStyleNoByPrefix(prefix);
+        int sequence = 1;
+        if (max != null && max.length() > prefix.length()) {
+            try {
+                sequence = Integer.parseInt(max.substring(prefix.length())) + 1;
+            } catch (NumberFormatException ignored) {
+                sequence = 1;
+            }
+        }
+        return prefix + String.format("%04d", sequence);
     }
 
     @Transactional(readOnly = true)
@@ -77,26 +110,27 @@ public class ShoeService {
     @Transactional
     public Shoe save(Shoe payload) {
         Shoe shoe;
+        String styleNo = payload.getStyleNo();
         if (payload.getId() == null) {
-            if (payload.getStyleNo() == null || payload.getStyleNo().isBlank()) {
-                throw new BusinessException("Style No is required");
+            if (styleNo == null || styleNo.isBlank()) {
+                styleNo = nextStyleNo(payload.getSupplierId());
             }
-            if (shoeRepository.existsByStyleNo(payload.getStyleNo())) {
+            if (shoeRepository.existsByStyleNo(styleNo)) {
                 throw new BusinessException("Style No already exists");
             }
             shoe = new Shoe();
         } else {
             shoe = getById(payload.getId());
-            if (payload.getStyleNo() != null
-                    && !payload.getStyleNo().equals(shoe.getStyleNo())
-                    && shoeRepository.existsByStyleNo(payload.getStyleNo())) {
+            String targetNo = styleNo == null || styleNo.isBlank() ? shoe.getStyleNo() : styleNo;
+            if (!targetNo.equals(shoe.getStyleNo()) && shoeRepository.existsByStyleNo(targetNo)) {
                 throw new BusinessException("Style No already exists");
             }
+            styleNo = targetNo;
         }
         if (payload.getName() == null || payload.getName().isBlank()) {
             throw new BusinessException("Shoe name is required");
         }
-        shoe.setStyleNo(payload.getStyleNo());
+        shoe.setStyleNo(styleNo);
         shoe.setName(payload.getName());
         shoe.setNameEn(payload.getNameEn());
         shoe.setCategory(payload.getCategory());
@@ -109,6 +143,7 @@ public class ShoeService {
         shoe.setSellingPrice(Numbers.nonNegativeOrNull(payload.getSellingPrice(), "Selling price"));
         shoe.setMoq(Numbers.nonNegativeOrNull(payload.getMoq(), "MOQ"));
         shoe.setSupplierId(payload.getSupplierId());
+        shoe.setPriceOptions(payload.getPriceOptions());
         shoe.setDescription(payload.getDescription());
         shoe.setStatus(payload.getStatus() == null ? "ACTIVE" : StatusCatalog.require(payload.getStatus(), StatusCatalog.SHOE, "Status"));
         shoe.setEnabled(payload.getEnabled() == null || payload.getEnabled());

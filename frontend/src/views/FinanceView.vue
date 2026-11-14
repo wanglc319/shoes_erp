@@ -52,6 +52,12 @@
         </el-form-item>
         <el-form-item :label="t('amountIn')"><el-input-number v-model="payForm.amount" :min="0" :precision="2" :controls="false" style="width:100%" /></el-form-item>
         <el-form-item :label="t('reference')"><el-input v-model="payForm.reference" /></el-form-item>
+        <el-form-item :label="t('uploadReceipt')">
+          <el-upload drag :show-file-list="false" :http-request="uploadReceipt" accept="image/*" style="width:100%">
+            <el-image v-if="payForm.attachmentUrl" :src="payForm.attachmentUrl" style="width:180px;height:110px" fit="contain" />
+            <div v-else class="muted" style="padding:14px">{{ t('dragHint') }}</div>
+          </el-upload>
+        </el-form-item>
         <el-form-item :label="t('remark')"><el-input v-model="payForm.remark" type="textarea" /></el-form-item>
       </el-form>
       <template #footer>
@@ -77,7 +83,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { receivableApi, paymentApi } from '../api'
+import { receivableApi, paymentApi, fileApi } from '../api'
 import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
 import { RECEIVABLE_STATUSES, PAYMENT_METHODS, today } from '../enums'
@@ -136,6 +142,12 @@ const savePayment = async () => {
   ElMessage.success(t('success'))
   payVisible.value = false
   load()
+}
+
+const uploadReceipt = async ({ file }) => {
+  const res = await fileApi.upload(file, 'payments')
+  payForm.attachmentUrl = res.data
+  ElMessage.success(t('uploadSuccess'))
 }
 
 const openHistory = async (row) => {

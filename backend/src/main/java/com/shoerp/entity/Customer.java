@@ -13,7 +13,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "customer", uniqueConstraints = @UniqueConstraint(columnNames = "code"))
-public class Customer extends BaseEntity {
+public class Customer extends OwnedEntity {
 
     @Column(nullable = false, length = 40)
     private String code;

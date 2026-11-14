@@ -21,3 +21,24 @@ export function exportCsv(filename, headers, rows) {
   link.click()
   URL.revokeObjectURL(link.href)
 }
+
+/**
+ * Download a backend-generated Excel file with the JWT attached.
+ * @param {string} path   API path, e.g. `/quotations/12/export`
+ * @param {string} filename downloaded file name including extension
+ */
+export async function downloadExcel(path, filename) {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${import.meta.env.BASE_URL}api${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  })
+  if (!response.ok) {
+    throw new Error(`导出失败 (${response.status})`)
+  }
+  const blob = await response.blob()
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(link.href)
+}

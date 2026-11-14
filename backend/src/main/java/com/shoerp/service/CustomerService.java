@@ -17,6 +17,7 @@ import com.shoerp.entity.Customer;
 import com.shoerp.repository.CustomerRepository;
 import com.shoerp.repository.QuotationRepository;
 import com.shoerp.repository.SalesOrderRepository;
+import com.shoerp.security.CurrentUser;
 
 import jakarta.persistence.criteria.Predicate;
 
@@ -57,6 +58,9 @@ public class CustomerService {
             if (level != null && !level.isBlank()) {
                 predicates.add(cb.equal(root.get("level"), level));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<Customer> result = customerRepository.findAll(spec, PageQuery.of(page, size));
@@ -72,8 +76,12 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public Customer getById(Long id) {
-        return customerRepository.findById(id)
+        Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Customer not found"));
+        if (!CurrentUser.owns(customer.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own customers");
+        }
+        return customer;
     }
 
     @Transactional
@@ -87,6 +95,7 @@ public class CustomerService {
                 throw new BusinessException("Customer code already exists");
             }
             customer = new Customer();
+            customer.setOwnerId(CurrentUser.id());
         } else {
             customer = getById(payload.getId());
             if (payload.getCode() != null

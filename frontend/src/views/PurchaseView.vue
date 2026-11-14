@@ -21,10 +21,11 @@
           <el-tag size="small" :type="statusTag(row.status)">{{ label(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column :label="t('actions')" width="240">
+      <el-table-column :label="t('actions')" width="320">
         <template #default="{ row }">
           <el-button link type="primary" @click="open(row)">{{ t('edit') }}</el-button>
           <el-button link @click="print(row)">{{ t('printPurchaseOrder') }}</el-button>
+          <el-button link type="warning" @click="exportPo(row)">{{ t('exportExcel') }}</el-button>
           <el-button link type="danger" @click="remove(row)">{{ t('delete') }}</el-button>
         </template>
       </el-table-column>
@@ -103,6 +104,7 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { purchaseApi, supplierApi, shoeApi } from '../api'
 import { printPurchase } from '../print'
+import { downloadExcel } from '../csv'
 import { enumLabel } from '../labels'
 import { PURCHASE_STATUSES, CURRENCIES, PAYMENT_TERMS, today } from '../enums'
 
@@ -177,6 +179,10 @@ const remove = async (row) => {
   await purchaseApi.remove(row.id)
   ElMessage.success(t('success'))
   load()
+}
+
+const exportPo = async (row) => {
+  await downloadExcel(`/purchases/${row.id}/export`, `PO-${row.purchaseNo}.xlsx`)
 }
 
 const print = async (row) => {

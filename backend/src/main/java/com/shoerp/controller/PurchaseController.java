@@ -11,10 +11,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.shoerp.common.ApiResponse;
+import com.shoerp.common.ExcelResponse;
 import com.shoerp.common.PageResult;
 import com.shoerp.dto.PurchaseRequest;
 import com.shoerp.entity.PurchaseOrder;
+import com.shoerp.service.ExcelExportService;
 import com.shoerp.service.PurchaseOrderService;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/purchases")
@@ -22,8 +26,18 @@ public class PurchaseController {
 
     private final PurchaseOrderService purchaseService;
 
-    public PurchaseController(PurchaseOrderService purchaseService) {
+    private final ExcelExportService excelExportService;
+
+    public PurchaseController(PurchaseOrderService purchaseService, ExcelExportService excelExportService) {
         this.purchaseService = purchaseService;
+        this.excelExportService = excelExportService;
+    }
+
+    @GetMapping("/{id}/export")
+    public void export(@PathVariable Long id, HttpServletResponse response) throws java.io.IOException {
+        PurchaseOrder purchase = purchaseService.getById(id);
+        ExcelResponse.write(response, excelExportService.exportPurchase(purchase),
+                "PO-" + purchase.getPurchaseNo() + ".xlsx");
     }
 
     @GetMapping

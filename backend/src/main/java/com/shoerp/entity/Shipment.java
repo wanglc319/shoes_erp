@@ -20,7 +20,7 @@ import lombok.Setter;
 @Setter
 @Entity
 @Table(name = "shipment", uniqueConstraints = @UniqueConstraint(columnNames = "shipment_no"))
-public class Shipment extends BaseEntity {
+public class Shipment extends OwnedEntity {
 
     @Column(name = "shipment_no", nullable = false, length = 40)
     private String shipmentNo;

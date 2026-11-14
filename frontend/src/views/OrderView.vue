@@ -19,7 +19,7 @@
       <el-table-column prop="orderDate" :label="t('orderDate')" width="120" />
       <el-table-column prop="deliveryDate" :label="t('deliveryDate')" width="120" />
       <el-table-column prop="totalAmount" :label="t('totalAmount')" width="120" />
-      <el-table-column :label="t('grossProfit')" width="150">
+      <el-table-column v-if="isAdmin" :label="t('grossProfit')" width="150">
         <template #default="{ row }">
           <span :class="{ 'profit-neg': marginOf(row) < 0 }">{{ marginText(row) }}</span>
         </template>
@@ -112,17 +112,19 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { orderApi, customerApi, shoeApi } from '../api'
 import { printOrder } from '../print'
 import { exportCsv } from '../csv'
 import { enumLabel } from '../labels'
+import { session } from '../permissions'
 import { ORDER_STATUSES, PRODUCTION_STATUSES, INCOTERMS, CURRENCIES, PAYMENT_TERMS, today, addDays } from '../enums'
 
 const { t, te } = useI18n()
 const label = (v) => enumLabel(t, te, v)
+const isAdmin = computed(() => session.user.role === 'ADMIN')
 const rows = ref([])
 const total = ref(0)
 const visible = ref(false)
@@ -153,15 +155,21 @@ const marginText = (row) => {
 const exportRows = async () => {
   const res = await orderApi.page({ ...query, page: 1, size: 200 })
   const records = res.data.records || []
-  exportCsv('orders', [
-    t('orderNo'), t('customer'), t('orderDate'), t('deliveryDate'), t('totalAmount'),
-    t('costTotal'), t('grossProfit'), t('status'), t('productionStatus')
-  ], records.map((row) => [
-    row.orderNo, row.customerName, row.orderDate, row.deliveryDate, row.totalAmount,
-    hasCostData(row) ? Number((row.items || []).reduce((s, i) => s + Number(i.costPrice || 0) * Number(i.quantity || 0), 0)).toFixed(2) : '',
-    hasCostData(row) ? (marginOf(row) || 0).toFixed(2) : '',
-    label(row.status), label(row.productionStatus)
-  ]))
+  const headers = [t('orderNo'), t('customer'), t('orderDate'), t('deliveryDate'), t('totalAmount')]
+  if (isAdmin.value) headers.push(t('costTotal'), t('grossProfit'))
+  headers.push(t('status'), t('productionStatus'))
+  const dataRows = records.map((row) => {
+    const base = [row.orderNo, row.customerName, row.orderDate, row.deliveryDate, row.totalAmount]
+    if (isAdmin.value) {
+      base.push(
+        hasCostData(row) ? Number((row.items || []).reduce((s, i) => s + Number(i.costPrice || 0) * Number(i.quantity || 0), 0)).toFixed(2) : '',
+        hasCostData(row) ? (marginOf(row) || 0).toFixed(2) : ''
+      )
+    }
+    base.push(label(row.status), label(row.productionStatus))
+    return base
+  })
+  exportCsv('orders', headers, dataRows)
 }
 
 const orderTag = (status) => (['SHIPPED', 'CONFIRMED'].includes(status) ? 'success' : status === 'CANCELLED' ? 'danger' : status === 'PARTIAL_SHIPPED' ? 'warning' : 'info')

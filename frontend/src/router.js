@@ -5,6 +5,7 @@ import DashboardView from './views/DashboardView.vue'
 import ShoeView from './views/ShoeView.vue'
 import SupplierView from './views/SupplierView.vue'
 import CustomerView from './views/CustomerView.vue'
+import InquiryView from './views/InquiryView.vue'
 import QuotationView from './views/QuotationView.vue'
 import OrderView from './views/OrderView.vue'
 import ShipmentView from './views/ShipmentView.vue'
@@ -26,6 +27,7 @@ const routes = [
       { path: 'shoes', component: ShoeView, meta: { menu: 'shoes' } },
       { path: 'suppliers', component: SupplierView, meta: { menu: 'suppliers' } },
       { path: 'customers', component: CustomerView, meta: { menu: 'customers' } },
+      { path: 'inquiries', component: InquiryView, meta: { menu: 'inquiries' } },
       { path: 'quotations', component: QuotationView, meta: { menu: 'quotations' } },
       { path: 'orders', component: OrderView, meta: { menu: 'orders' } },
       { path: 'shipments', component: ShipmentView, meta: { menu: 'shipments' } },
@@ -45,10 +47,11 @@ const router = createRouter({
 
 const defaultPath = () => {
   const order = ['dashboard', 'orders', 'shipments', 'purchases', 'shoes', 'suppliers',
-    'customers', 'quotations', 'finance', 'fx', 'users', 'permissions']
+    'customers', 'inquiries', 'quotations', 'finance', 'fx', 'users', 'permissions']
   const pathOf = {
     dashboard: '/dashboard', orders: '/orders', shipments: '/shipments', purchases: '/purchases',
-    shoes: '/shoes', suppliers: '/suppliers', customers: '/customers', quotations: '/quotations',
+    shoes: '/shoes', suppliers: '/suppliers', customers: '/customers', inquiries: '/inquiries',
+    quotations: '/quotations',
     finance: '/finance', fx: '/fx', users: '/users', permissions: '/permissions'
   }
   const found = order.find((key) => can(key))

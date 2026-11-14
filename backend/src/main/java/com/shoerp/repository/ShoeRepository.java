@@ -17,6 +17,9 @@ public interface ShoeRepository extends JpaRepository<Shoe, Long>, JpaSpecificat
 
     boolean existsBySupplierId(Long supplierId);
 
+    @Query("SELECT MAX(s.styleNo) FROM Shoe s WHERE s.styleNo LIKE CONCAT(:prefix, '%')")
+    String findMaxStyleNoByPrefix(@Param("prefix") String prefix);
+
     @Query(value = "SELECT (SELECT COUNT(*) FROM order_item WHERE shoe_id = :shoeId)"
             + " + (SELECT COUNT(*) FROM quotation_item WHERE shoe_id = :shoeId)"
             + " + (SELECT COUNT(*) FROM purchase_order_item WHERE shoe_id = :shoeId)", nativeQuery = true)

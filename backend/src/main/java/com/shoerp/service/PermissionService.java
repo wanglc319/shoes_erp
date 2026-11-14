@@ -31,8 +31,8 @@ public class PermissionService {
     private static Map<String, List<String>> defaultMenus() {
         Map<String, List<String>> map = new LinkedHashMap<>();
         map.put("ADMIN", MenuCatalog.allKeys());
-        map.put("SALES", List.of("dashboard", "shoes", "customers", "quotations", "orders", "shipments"));
-        map.put("OPS", List.of("dashboard", "shoes", "suppliers", "orders", "shipments", "purchases"));
+        map.put("SALES", List.of("dashboard", "shoes", "customers", "inquiries", "quotations", "orders", "shipments"));
+        map.put("OPS", List.of("dashboard", "shoes", "suppliers", "inquiries", "orders", "shipments", "purchases"));
         map.put("FINANCE", List.of("dashboard", "customers", "orders", "shipments", "finance", "fx"));
         return map;
     }

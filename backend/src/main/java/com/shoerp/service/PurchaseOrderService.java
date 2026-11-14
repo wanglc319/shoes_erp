@@ -21,6 +21,7 @@ import com.shoerp.entity.PurchaseOrder;
 import com.shoerp.entity.PurchaseOrderItem;
 import com.shoerp.entity.Supplier;
 import com.shoerp.repository.PurchaseOrderRepository;
+import com.shoerp.security.CurrentUser;
 import com.shoerp.repository.SupplierRepository;
 
 import jakarta.persistence.criteria.Predicate;
@@ -57,6 +58,9 @@ public class PurchaseOrderService {
             if (supplierId != null) {
                 predicates.add(cb.equal(root.get("supplierId"), supplierId));
             }
+            if (CurrentUser.needsOwnershipFilter()) {
+                predicates.add(cb.equal(root.get("ownerId"), CurrentUser.id()));
+            }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
         Page<PurchaseOrder> result = purchaseRepository.findAll(spec, PageQuery.of(page, size));
@@ -68,6 +72,9 @@ public class PurchaseOrderService {
     public PurchaseOrder getById(Long id) {
         PurchaseOrder purchase = purchaseRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(404, "Purchase order not found"));
+        if (!CurrentUser.owns(purchase.getOwnerId())) {
+            throw new BusinessException(403, "You can only access your own purchase orders");
+        }
         purchase.getItems().size();
         return purchase;
     }
@@ -98,6 +105,9 @@ public class PurchaseOrderService {
         }
 
         purchase.setPurchaseNo(purchaseNo);
+        if (purchase.getOwnerId() == null) {
+            purchase.setOwnerId(CurrentUser.id());
+        }
         purchase.setSupplierId(supplier.getId());
         purchase.setSupplierName(supplier.getName());
         purchase.setPurchaseDate(parseDate(request.getPurchaseDate(), LocalDate.now()));
@@ -117,6 +127,8 @@ public class PurchaseOrderService {
                 item.setShoeId(payload.getShoeId());
                 item.setStyleNo(payload.getStyleNo());
                 item.setProductName(payload.getProductName());
+                item.setMaterial(payload.getMaterial());
+                item.setImageUrl(payload.getImageUrl());
                 item.setColor(payload.getColor());
                 item.setSizeRange(payload.getSizeRange());
                 item.setQuantity(Numbers.nonNegative(payload.getQuantity(), "Quantity"));

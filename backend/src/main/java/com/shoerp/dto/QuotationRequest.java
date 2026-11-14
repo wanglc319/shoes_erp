@@ -37,6 +37,7 @@ public class QuotationRequest {
         private String styleNo;
         private String productName;
         private String material;
+        private String imageUrl;
         private String color;
         private String sizeRange;
         private Integer quantity;

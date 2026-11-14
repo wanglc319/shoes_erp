@@ -39,6 +39,10 @@ public class PurchaseRequest {
 
         private String productName;
 
+        private String material;
+
+        private String imageUrl;
+
         private String color;
 
         private String sizeRange;

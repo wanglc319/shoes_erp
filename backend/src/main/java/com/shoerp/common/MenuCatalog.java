@@ -12,6 +12,7 @@ public final class MenuCatalog {
             new MenuDef("shoes", "/shoes", "shoes"),
             new MenuDef("suppliers", "/suppliers", "suppliers"),
             new MenuDef("customers", "/customers", "customers"),
+            new MenuDef("inquiries", "/inquiries", "inquiries"),
             new MenuDef("quotations", "/quotations", "quotations"),
             new MenuDef("orders", "/orders", "orders"),
             new MenuDef("shipments", "/shipments", "shipments"),

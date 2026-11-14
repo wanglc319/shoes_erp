@@ -16,6 +16,8 @@ public final class StatusCatalog {
 
     public static final List<String> PURCHASE = List.of("DRAFT", "CONFIRMED", "IN_PRODUCTION", "DELIVERED", "CANCELLED");
 
+    public static final List<String> INQUIRY = List.of("DRAFT", "SENT", "QUOTED", "CLOSED", "CANCELLED");
+
     public static final List<String> ROLES = List.of("ADMIN", "SALES", "OPS", "FINANCE");
 
     private StatusCatalog() {

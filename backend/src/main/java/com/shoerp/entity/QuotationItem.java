@@ -36,6 +36,9 @@ public class QuotationItem extends BaseEntity {
     @Column(length = 80)
     private String material;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
     @Column(length = 120)
     private String color;
 
