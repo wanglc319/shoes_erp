@@ -76,13 +76,14 @@ const pwdLoading = ref(false)
 const pwdForm = reactive({ oldPassword: '', newPassword: '', confirm: '' })
 
 const paths = {
-  dashboard: '/dashboard', shoes: '/shoes', suppliers: '/suppliers', customers: '/customers',
+  dashboard: '/dashboard', shoes: '/shoes', productDetails: '/product-details', shoeImages: '/shoe-images',
+  suppliers: '/suppliers', customers: '/customers',
   inquiries: '/inquiries', quotations: '/quotations', orders: '/orders', shipments: '/shipments',
   purchases: '/purchases', finance: '/finance', fx: '/fx', users: '/users', permissions: '/permissions'
 }
 
 const menus = computed(() =>
-  MENUS.filter((item) => can(item.key)).map((item) => ({ ...item, path: paths[item.key] }))
+  MENUS.filter((item) => can(item.permissionKey || item.key)).map((item) => ({ ...item, path: paths[item.key] }))
 )
 
 const changeLocale = (value) => {

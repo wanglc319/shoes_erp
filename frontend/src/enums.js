@@ -71,6 +71,8 @@ export const ROLES = ['ADMIN', 'SALES', 'OPS', 'FINANCE']
 export const MENUS = [
   { key: 'dashboard', titleKey: 'dashboard' },
   { key: 'shoes', titleKey: 'shoes' },
+  { key: 'productDetails', permissionKey: 'shoes', titleKey: 'productDetails' },
+  { key: 'shoeImages', permissionKey: 'shoes', titleKey: 'shoeImages' },
   { key: 'suppliers', titleKey: 'suppliers' },
   { key: 'customers', titleKey: 'customers' },
   { key: 'inquiries', titleKey: 'inquiries' },

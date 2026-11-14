@@ -3,6 +3,8 @@ import LoginView from './views/LoginView.vue'
 import LayoutView from './views/LayoutView.vue'
 import DashboardView from './views/DashboardView.vue'
 import ShoeView from './views/ShoeView.vue'
+import ProductDetailView from './views/ProductDetailView.vue'
+import ShoeImageView from './views/ShoeImageView.vue'
 import SupplierView from './views/SupplierView.vue'
 import CustomerView from './views/CustomerView.vue'
 import InquiryView from './views/InquiryView.vue'
@@ -27,6 +29,8 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', component: DashboardView, meta: { menu: 'dashboard' } },
       { path: 'shoes', component: ShoeView, meta: { menu: 'shoes' } },
+      { path: 'product-details', component: ProductDetailView, meta: { menu: 'shoes' } },
+      { path: 'shoe-images', component: ShoeImageView, meta: { menu: 'shoes' } },
       { path: 'suppliers', component: SupplierView, meta: { menu: 'suppliers' } },
       { path: 'customers', component: CustomerView, meta: { menu: 'customers' } },
       { path: 'inquiries', component: InquiryView, meta: { menu: 'inquiries' } },

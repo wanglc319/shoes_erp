@@ -35,7 +35,7 @@ import { ROLES, MENUS } from '../enums'
 const { t, te } = useI18n()
 const label = (v) => enumLabel(t, te, v)
 const roles = ref([...ROLES])
-const catalog = ref([...MENUS])
+const catalog = ref(MENUS.filter((item) => !item.permissionKey))
 const matrix = reactive({})
 
 const roleTag = (role) => (role === 'ADMIN' ? 'danger' : role === 'SALES' ? 'warning' : role === 'FINANCE' ? 'success' : 'info')
